@@ -336,7 +336,7 @@ const codeStarters=[
  ['Buat tampilan','Buat tombol login dengan HTML dan CSS']
 ];
 const MODES={
- chat:{h:'Halo, aku Nusa',p:'Tanya, tulis, atau rangkum apa saja.',ph:'Tanya apa saja ke Nusa…',t:'Obrolan baru'},
+ chat:{h:['Ngobrolin apa nih?','Gas, mau tanya apa?','Sini, lempar aja','Lagi ada ide apa?','Nusa udah standby, ayo'],p:'Nusa.ai',ph:'Tanya apa saja ke Nusa…',t:'Obrolan baru'},
  code:{h:'Nusa Terminal v0.1',p:'Ketik tugas atau perintah. Contoh: buat fungsi sorting di Python.',ph:'$ ketik perintah…',t:'Sesi terminal'}
 };
 let view='chat';
@@ -344,7 +344,7 @@ const convTitle={chat:'Obrolan baru',code:'Sesi terminal'};
 function hero(){
   const m=MODES[view];
   chat.innerHTML='<div class="hero"><div class="hl">N</div><h1></h1><p></p></div>';
-  chat.querySelector('h1').textContent=m.h;chat.querySelector('p').textContent=m.p;
+  chat.querySelector('h1').textContent=Array.isArray(m.h)?m.h[Math.floor(Math.random()*m.h.length)]:m.h;chat.querySelector('p').textContent=m.p;
   inp.placeholder=m.ph;convTitle[view]=m.t;$('#title').textContent=m.t;curHist=null;
 }
 function add(role,text){
@@ -385,13 +385,13 @@ const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL 
 const hist={chat:[],code:[]};
 function typeReply(b,text,fin){
   if(matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
-  const rate=Math.max(110,text.length/6); // karakter per detik; jawaban panjang dipercepat agar maks ~6 detik
+  const rate=Math.max(75,text.length/8); // karakter per detik; jawaban panjang dipercepat agar maks ~8 detik
   let t0=null,shown=-1;b.classList.add('typing');
   function step(ts){
     if(t0===null)t0=ts;
     const k=Math.min(text.length,Math.floor((ts-t0)/1000*rate));
     if(k!==shown){
-      shown=k;b.innerHTML=renderReply(text.slice(0,k));
+      shown=k;b.innerHTML=renderReply(text.slice(0,k).replace(/`{1,2}$/,'').replace(/\*$/,''));
       if(sc.scrollHeight-sc.scrollTop-sc.clientHeight<140)sc.scrollTop=sc.scrollHeight;
     }
     if(k<text.length)requestAnimationFrame(step);
