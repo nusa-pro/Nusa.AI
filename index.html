@@ -395,16 +395,18 @@ document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>setView(b.data
 /* login (demo) */
 const lm=$('#lm'),loginb=$('#loginb');let user=null;
 loginb.onclick=()=>{lm.classList.add('show');$('#le').focus()};
-$('#pout').onclick=()=>{user=null;$('#prof').style.display='none';loginb.style.display='';toast('Kamu sudah keluar')};
+$('#pout').onclick=()=>{user=null;try{localStorage.removeItem('nusa_user')}catch(e){}$('#prof').style.display='none';loginb.style.display='';toast('Kamu sudah keluar')};
 $('#lx').onclick=()=>lm.classList.remove('show');
 let reg=false;
-function setUser(name,info){info=info||{};user=name;
+function setUser(name,info,silent){info=info||{};user=name;
+  if(!silent){try{localStorage.setItem('nusa_user',JSON.stringify({name:name,email:info.email||'',picture:info.picture||'',t:Date.now()}))}catch(e){}}
   const av=$('#pav');av.textContent='';
   const ini=(name||'?').trim().charAt(0).toUpperCase();
   if(info.picture){const im=document.createElement('img');im.src=info.picture;im.alt='';im.referrerPolicy='no-referrer';im.onerror=()=>{av.textContent=ini};av.appendChild(im)}else av.textContent=ini;
   $('#pn').textContent=name;$('#pm').textContent=info.email||'';
   loginb.style.display='none';$('#prof').style.display='flex';
-  lm.classList.remove('show');close();toast('Masuk sebagai '+name)}
+  if(!silent){lm.classList.remove('show');close();toast('Masuk sebagai '+name)}}
+try{const sv=JSON.parse(localStorage.getItem('nusa_user')||'null');if(sv&&sv.name&&Date.now()-sv.t<30*864e5)setUser(sv.name,{email:sv.email,picture:sv.picture},true)}catch(e){}
 const GOOGLE_CLIENT_ID='853427150004-e2gupknlko4bonlbk6pd43inkn4j155a.apps.googleusercontent.com';
 let gtc=null;
 $('#lg').onclick=()=>{
