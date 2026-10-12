@@ -183,6 +183,7 @@ button:active{opacity:.65}
 .toast.show{opacity:1;transform:translateX(-50%)}
 .warn{position:fixed;left:50%;top:calc(24px + env(safe-area-inset-top,0px));transform:translateX(-50%) translateY(-12px);background:#3A1F22;color:#FFD9DB;border:1px solid #6B2B30;padding:11px 18px;border-radius:14px;opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;z-index:30;font-size:14px;max-width:90%;text-align:center}
 .warn.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.warn.ok{background:#12301F;color:#D3F7E0;border-color:#1F6B3B}
 .go.danger{background:#E5484D;color:#fff}
 .card{max-height:92%;overflow-y:auto}
 .soc{display:flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:12px;padding:12px;font-weight:600}
@@ -445,7 +446,7 @@ $('#lsend').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),b=$('#
     b.disabled=false;b.textContent='Kirim kode';
     warn(/rate|seconds|limit/i.test(error.message)?'Terlalu sering meminta kode. Tunggu sebentar lalu coba lagi.':'Gagal mengirim kode: '+error.message,6000);return}
   otpMail=e;
-  warn('Kode OTP sudah dikirim ke '+e+'. Cek inbox atau folder spam.',6000);
+  warn('Kode OTP sudah dikirim ke '+e+'. Cek inbox atau folder spam.',6000,true);
   $('#lo').value='';$('#lo').focus();
   let t=60;b.disabled=true;b.textContent='Kirim ulang ('+t+')';
   clearInterval(otpTimer);otpTimer=setInterval(()=>{t--;if(t<=0){clearInterval(otpTimer);b.disabled=false;b.textContent='Kirim ulang'}else b.textContent='Kirim ulang ('+t+')'},1000)};
@@ -509,7 +510,7 @@ function addAtt(files){
 /* menu obrolan (titik 3) */
 let curHist=null,tt,dp=null,dcb=null;
 const dd=$('#dd'),more=$('#more'),dm=$('#dm'),histEl=$('#hist');
-let wt;function warn(m,ms){const w=$('#warn');w.textContent=m;w.classList.add('show');clearTimeout(wt);wt=setTimeout(()=>w.classList.remove('show'),ms||2600)}
+let wt;function warn(m,ms,ok){const w=$('#warn');w.textContent=m;w.classList.toggle('ok',!!ok);w.classList.add('show');clearTimeout(wt);wt=setTimeout(()=>w.classList.remove('show'),ms||2600)}
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2400)}
 function dialog(t,p,val,ok,cb,danger){
   $('#dt').textContent=t;const pe=$('#dp');pe.textContent=p;pe.style.display=p?'block':'none';
