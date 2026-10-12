@@ -403,7 +403,8 @@ function ask(){
   };
   const done=(html,copy)=>{b.innerHTML=html;fin(copy)};
   
-  if(view==='code'&&LOCAL.has(t.split(/\s+/)[0])){
+  if(view==='code'&&(LINK?!/^ai\s/.test(t):LOCAL.has(t.split(/\s+/)[0]))){
+    if(/^connect\s/.test(t)){c.msgs[c.msgs.length-1].t=t.replace(/\S+$/,'••••');saveConvs()}
     runLocal(t).then(o=>{
       if(o===CLR){chat.innerHTML='';busy=false;send.disabled=!inp.value.trim();return}
       o=o||'(tanpa output)';c.msgs.push({r:'b',t:o});c.ts=Date.now();saveConvs();done(esc(o),o)
@@ -651,7 +652,7 @@ mic.onclick=async()=>{
   }catch(_){toast('Mikrofon tidak bisa diakses. Izinkan akses mikrofon.')}
 };
 /* terminal lokal: simulasi + python (Pyodide) + js (Worker) */
-const LOCAL=new Set(['help','clear','pwd','ls','cd','mkdir','touch','cat','echo','rm','date','whoami','uname','python','python3','node','sudo','apt','pip','pip3','npm']);
+const LOCAL=new Set(['help','clear','pwd','ls','cd','mkdir','touch','cat','echo','rm','date','whoami','uname','python','python3','node','sudo','apt','pip','pip3','npm','connect','disconnect']);
 const CLR='\u0000clear';
 let cwd='/home/nusa',FS={'/':null,'/home':null,'/home/nusa':null};
 try{const o=JSON.parse(localStorage.getItem('nusa_fs_v1')||'null');if(o&&typeof o==='object'&&'/' in o)FS=o}catch(e){}
@@ -679,7 +680,7 @@ function runJs(code){return new Promise(ok=>{
 async function cmd(c,a){
   const fl=a.filter(x=>x[0]==='-'),ar=a.filter(x=>x[0]!=='-');
   switch(c){
-  case 'help':return 'Perintah: help, clear, pwd, ls, cd, mkdir [-p], touch, cat, echo [-e], rm [-r], date, whoami, uname\nTulis file: echo "teks" > file  atau  >> file\nJalankan kode: python file.py | python -c "print(1)" | node file.js | node -e "console.log(1)"\nPerintah lain dikirim ke Nusa (AI). Terminal ini jalan di browser, bukan Linux asli.';
+  case 'help':return 'Perintah: help, clear, pwd, ls, cd, mkdir [-p], touch, cat, echo [-e], rm [-r], date, whoami, uname\nTulis file: echo "teks" > file  atau  >> file\nJalankan kode: python file.py | python -c "print(1)" | node file.js | node -e "console.log(1)"\nTermux: connect http://127.0.0.1:8765 TOKEN (shell Linux asli)\nPerintah lain dikirim ke Nusa (AI). Terminal ini jalan di browser, bukan Linux asli.';
   case 'clear':return CLR;
   case 'pwd':return cwd;
   case 'whoami':return 'nusa';
@@ -716,7 +717,28 @@ async function cmd(c,a){
     return runJs(code)}
   default:return c+': tidak tersedia. Terminal ini berjalan di browser, bukan Linux asli.'}
 }
+let LINK=null;try{const o=JSON.parse(localStorage.getItem('nusa_link')||'null');if(o&&o.u&&o.t)LINK={u:o.u,t:o.t}}catch(e){}
+async function linkConnect(line){
+  const a=line.trim().split(/\s+/),u=(a[1]||'').replace(/\/$/,''),t=a[2]||'';
+  if(!/^https?:\/\//.test(u)||!t)return 'Pakai: connect http://127.0.0.1:8765 TOKEN';
+  try{const r=await fetch(u,{headers:{'Authorization':'Bearer '+t}});
+    if(r.status===401)return 'Token salah.';
+    const d=await r.json();LINK={u:u,t:t};
+    try{localStorage.setItem('nusa_link',JSON.stringify(LINK))}catch(e){}
+    return 'Tersambung ke Termux ('+d.cwd+').\nSemua perintah sekarang jalan di Termux. Awali dengan "ai " untuk bertanya ke Nusa. Ketik disconnect untuk keluar.'}
+  catch(e){return 'Tidak bisa terhubung. Pastikan "python nusa-server.py" masih jalan di Termux.'}
+}
+async function remote(line){
+  try{const r=await fetch(LINK.u,{method:'POST',headers:{'Authorization':'Bearer '+LINK.t,'Content-Type':'application/json'},body:JSON.stringify({cmd:line})});
+    if(r.status===401)return 'Token salah. Ketik connect lagi dengan token terbaru.';
+    return (await r.json()).out||''}
+  catch(e){return 'Gagal terhubung ke Termux. Pastikan "python nusa-server.py" masih jalan.'}
+}
 async function runLocal(line){
+  const w=line.split(/\s+/)[0];
+  if(w==='connect')return linkConnect(line);
+  if(w==='disconnect'){LINK=null;try{localStorage.removeItem('nusa_link')}catch(e){}return 'Terputus. Kembali ke terminal browser.'}
+  if(LINK&&w!=='clear'&&w!=='help')return remote(line);
   const m=line.match(/"[^"]*"|'[^']*'|\S+/g)||[];
   const ri=m.findIndex(x=>x==='>'||x==='>>'),app=ri>=0&&m[ri]==='>>',tg=ri>=0?m[ri+1]:null;
   if(ri>=0&&!tg)return 'bash: sintaks error dekat >';
