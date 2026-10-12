@@ -119,6 +119,14 @@ body[data-view="code"] .hero p{font-size:14px}
 .nav button.on{background:var(--raise);color:var(--ink)}
 .login{width:100%;background:var(--accent);color:#0A0A0A;border:0;border-radius:12px;padding:11px;font-weight:700}
 .login.in{background:var(--raise);color:var(--ink);font-weight:600}
+.prof{display:flex;align-items:center;gap:11px;width:100%;background:var(--raise);border-radius:16px;padding:9px 10px 9px 9px}
+.prof .av{width:40px;height:40px;border-radius:50%;flex:none;background:var(--accent);color:#0A0A0A;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;overflow:hidden;box-shadow:0 0 0 2px rgba(255,255,255,.12)}
+.prof .av img{width:100%;height:100%;object-fit:cover;display:block}
+.prof .pi{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.prof .pi b{color:var(--ink);font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prof .pi span{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prof .pout{flex:none;width:34px;height:34px;border:0;border-radius:10px;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.prof .pout:active{background:#26262C;color:var(--ink)}
 .modal{display:none;position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.72);align-items:center;justify-content:center;padding:20px}
 .modal.show{display:flex}
 .card{background:var(--panel);border-radius:20px;padding:22px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:10px}
@@ -226,7 +234,8 @@ setTimeout(end,rm?900:6000);})();
     <nav class="nav" aria-label="Fitur"><button data-v="chat" class="on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v10H10l-4 4v-4H5z"/></svg>Chat</button><button data-v="code"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l5 5-5 5M12 18h7"/></svg>Code</button><button data-v="project"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h6l2 2h8v10H4z"/></svg>Project</button></nav>
     <button class="new" id="new">+ Obrolan baru</button>
     <div class="hist" id="hist"><small>Hari ini</small></div>
-    <div class="foot"><button class="login" id="loginb">Masuk atau daftar</button></div>
+    <div class="foot"><button class="login" id="loginb">Masuk atau daftar</button>
+      <div class="prof" id="prof" style="display:none"><div class="av" id="pav"></div><div class="pi"><b id="pn"></b><span id="pm"></span></div><button class="pout" id="pout" type="button" aria-label="Keluar" title="Keluar"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></button></div></div>
   </aside>
   <div class="scrim" id="scrim"></div>
   <main class="main">
@@ -385,10 +394,17 @@ function setView(v){
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>setView(b.dataset.v));
 /* login (demo) */
 const lm=$('#lm'),loginb=$('#loginb');let user=null;
-loginb.onclick=()=>{if(user){user=null;loginb.textContent='Masuk atau daftar';loginb.classList.remove('in')}else{lm.classList.add('show');$('#le').focus()}};
+loginb.onclick=()=>{lm.classList.add('show');$('#le').focus()};
+$('#pout').onclick=()=>{user=null;$('#prof').style.display='none';loginb.style.display='';toast('Kamu sudah keluar')};
 $('#lx').onclick=()=>lm.classList.remove('show');
 let reg=false;
-function setUser(name){user=name;loginb.textContent='Keluar ('+name+')';loginb.classList.add('in');lm.classList.remove('show');close();toast('Masuk sebagai '+name)}
+function setUser(name,info){info=info||{};user=name;
+  const av=$('#pav');av.textContent='';
+  const ini=(name||'?').trim().charAt(0).toUpperCase();
+  if(info.picture){const im=document.createElement('img');im.src=info.picture;im.alt='';im.referrerPolicy='no-referrer';im.onerror=()=>{av.textContent=ini};av.appendChild(im)}else av.textContent=ini;
+  $('#pn').textContent=name;$('#pm').textContent=info.email||'';
+  loginb.style.display='none';$('#prof').style.display='flex';
+  lm.classList.remove('show');close();toast('Masuk sebagai '+name)}
 const GOOGLE_CLIENT_ID='853427150004-e2gupknlko4bonlbk6pd43inkn4j155a.apps.googleusercontent.com';
 let gtc=null;
 $('#lg').onclick=()=>{
@@ -398,7 +414,7 @@ $('#lg').onclick=()=>{
     callback:async r=>{
       if(r.error||!r.access_token){warn('Login Google dibatalkan atau gagal.');return}
       try{const u=await (await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+r.access_token}})).json();
-        setUser((u.given_name||u.name||u.email||'Akun Google'))}
+        setUser((u.name||u.given_name||u.email||'Akun Google'),{email:u.email,picture:u.picture})}
       catch(e){warn('Gagal mengambil profil Google.')}
     },
     error_callback:()=>{warn('Login Google dibatalkan atau gagal.')}});}
@@ -435,7 +451,7 @@ $('#lgo').onclick=()=>{const e=$('#le').value.trim(),p=$('#lp').value,s=$('#lmsg
     if(p!==$('#lp2').value){warn('Konfirmasi kata sandi tidak sama.');return}
     otpCode=null;
   }else if(p.length<6){warn('Kata sandi minimal 6 karakter.');return}
-  setUser(e.split('@')[0]);
+  setUser(e.split('@')[0],{email:e});
 };
 /* project */
 const pj=[];
