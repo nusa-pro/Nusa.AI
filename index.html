@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
 :root{
@@ -171,11 +172,14 @@ button:active{opacity:.65}
 .hist button.pin::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:8px;vertical-align:middle}
 .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(10px);background:#2A2A31;color:var(--ink);padding:10px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:20;font-size:14px;max-width:88%;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%)}
+.warn{position:fixed;left:50%;top:calc(24px + env(safe-area-inset-top,0px));transform:translateX(-50%) translateY(-12px);background:#3A1F22;color:#FFD9DB;border:1px solid #6B2B30;padding:11px 18px;border-radius:14px;opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;z-index:30;font-size:14px;max-width:90%;text-align:center}
+.warn.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .go.danger{background:#E5484D;color:#fff}
 .card{max-height:92%;overflow-y:auto}
 .soc{display:flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:12px;padding:12px;font-weight:600}
 .soc.g{background:#fff;color:#1B1B1F}
 .soc.a{background:#26262C;color:#fff}
+.orow{display:flex;gap:8px}.orow input{flex:1;min-width:0;letter-spacing:2px}.orow .soc{white-space:nowrap;padding:12px 14px}.orow .soc:disabled{opacity:.5}
 .dd button{display:flex;align-items:center;gap:12px}
 .dd svg{flex:none;color:var(--muted)}
 .dd .del svg{color:#FF6B6B}
@@ -247,6 +251,7 @@ setTimeout(end,rm?900:6000);})();
       <button class="alt" id="dno">Batal</button>
     </div></div>
     <div class="toast" id="toast"></div>
+    <div class="warn" id="warn" role="alert"></div>
     <div class="modal" id="lm" role="dialog" aria-modal="true" aria-labelledby="lt"><div class="card">
       <h2 id="lt">Masuk ke Nusa</h2>
       <p>Simpan riwayat obrolan dan file di semua perangkat.</p>
@@ -258,7 +263,9 @@ setTimeout(end,rm?900:6000);})();
       
       
       <input id="le" type="email" placeholder="Email" autocomplete="email">
+      <div class="orow" id="lotpw" style="display:none"><input id="lo" type="text" inputmode="numeric" maxlength="6" placeholder="Kode OTP email" autocomplete="one-time-code"><button class="soc a" id="lsend" type="button">Kirim kode</button></div>
       <input id="lp" type="password" placeholder="Kata sandi" autocomplete="current-password">
+      <input id="lp2" type="password" placeholder="Konfirmasi kata sandi" autocomplete="new-password" style="display:none">
       <button class="go" id="lgo">Masuk</button>
       <button class="alt" id="lreg">Belum punya akun? Daftar dengan Gmail</button>
       <button class="alt" id="lx">Nanti saja</button>
@@ -382,13 +389,52 @@ loginb.onclick=()=>{if(user){user=null;loginb.textContent='Masuk atau daftar';lo
 $('#lx').onclick=()=>lm.classList.remove('show');
 let reg=false;
 function setUser(name){user=name;loginb.textContent='Keluar ('+name+')';loginb.classList.add('in');lm.classList.remove('show');close();toast('Masuk sebagai '+name)}
-$('#lg').onclick=()=>setUser('Akun Google');
-function setReg(r){reg=r;$('#lt').textContent=r?'Daftar akun baru':'Masuk ke Nusa';$('#lgo').textContent=r?'Daftar':'Masuk';$('#le').placeholder=r?'Alamat Gmail':'Email';$('#lreg').textContent=r?'Sudah punya akun? Masuk':'Belum punya akun? Daftar dengan Gmail';$('#lmsg').textContent='Login belum tersambung ke server (mode demo).'}
+const GOOGLE_CLIENT_ID='853427150004-e2gupknlko4bonlbk6pd43inkn4j155a.apps.googleusercontent.com';
+let gtc=null;
+$('#lg').onclick=()=>{
+  const s=$('#lmsg');
+  if(!(window.google&&google.accounts&&google.accounts.oauth2)){warn('Layanan Google belum termuat. Cek koneksi lalu coba lagi.');return}
+  if(!gtc){gtc=google.accounts.oauth2.initTokenClient({client_id:GOOGLE_CLIENT_ID,scope:'openid email profile',
+    callback:async r=>{
+      if(r.error||!r.access_token){warn('Login Google dibatalkan atau gagal.');return}
+      try{const u=await (await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+r.access_token}})).json();
+        setUser((u.given_name||u.name||u.email||'Akun Google'))}
+      catch(e){warn('Gagal mengambil profil Google.')}
+    },
+    error_callback:()=>{warn('Login Google dibatalkan atau gagal.')}});}
+  gtc.requestAccessToken();
+};
+let otpCode=null,otpMail=null,otpOk=false,otpTimer=null;
+function setReg(r){reg=r;otpOk=false;otpCode=null;
+  $('#lt').textContent=r?'Daftar akun baru':'Masuk ke Nusa';
+  $('#lgo').textContent=r?'Daftar':'Masuk';
+  $('#le').placeholder=r?'Alamat Gmail':'Email';
+  $('#lotpw').style.display=r?'flex':'none';
+  $('#lp2').style.display=r?'':'none';
+  $('#lp').autocomplete=r?'new-password':'current-password';
+  $('#lreg').textContent=r?'Sudah punya akun? Masuk':'Belum punya akun? Daftar dengan Gmail';
+  $('#lmsg').textContent='Login belum tersambung ke server (mode demo).'}
 $('#lreg').onclick=()=>setReg(!reg);
+$('#le').oninput=()=>{if(otpMail&&$('#le').value.trim()!==otpMail){otpCode=null;otpOk=false}};
+$('#lsend').onclick=()=>{const e=$('#le').value.trim(),s=$('#lmsg'),b=$('#lsend');
+  if(!/^\S+@gmail\.com$/i.test(e)){warn('Isi alamat Gmail (@gmail.com) dulu.');return}
+  /* TODO server: kirim OTP ke email lewat backend. Mode demo: kode dibuat di sini. */
+  otpMail=e;otpOk=false;otpCode=String(Math.floor(100000+Math.random()*900000));
+  warn('Mode demo: kode OTP kamu '+otpCode+' (belum dikirim ke email).',7000);
+  $('#lo').value='';$('#lo').focus();
+  let t=60;b.disabled=true;b.textContent='Kirim ulang ('+t+')';
+  clearInterval(otpTimer);otpTimer=setInterval(()=>{t--;if(t<=0){clearInterval(otpTimer);b.disabled=false;b.textContent='Kirim ulang'}else b.textContent='Kirim ulang ('+t+')'},1000)};
 $('#lgo').onclick=()=>{const e=$('#le').value.trim(),p=$('#lp').value,s=$('#lmsg');
-  if(!/^\S+@\S+\.\S+$/.test(e)){s.textContent='Isi email yang valid.';return}
-  if(reg&&!/@gmail\.com$/i.test(e)){s.textContent='Pendaftaran memakai alamat Gmail (@gmail.com).';return}
-  if(p.length<6){s.textContent='Kata sandi minimal 6 karakter.';return}
+  if(!/^\S+@\S+\.\S+$/.test(e)){warn('Isi email yang valid.');return}
+  if(reg){
+    if(!/@gmail\.com$/i.test(e)){warn('Pendaftaran memakai alamat Gmail (@gmail.com).');return}
+    if(!otpCode||otpMail!==e){warn('Tekan "Kirim kode" dulu untuk dapat kode OTP.');return}
+    if($('#lo').value.trim()!==otpCode){warn('Kode OTP salah.');return}
+    otpOk=true;
+    if(p.length<6){warn('Kata sandi minimal 6 karakter.');return}
+    if(p!==$('#lp2').value){warn('Konfirmasi kata sandi tidak sama.');return}
+    otpCode=null;
+  }else if(p.length<6){warn('Kata sandi minimal 6 karakter.');return}
   setUser(e.split('@')[0]);
 };
 /* project */
@@ -426,6 +472,7 @@ function addAtt(files){
 /* menu obrolan (titik 3) */
 let curHist=null,tt,dp=null,dcb=null;
 const dd=$('#dd'),more=$('#more'),dm=$('#dm'),histEl=$('#hist');
+let wt;function warn(m,ms){const w=$('#warn');w.textContent=m;w.classList.add('show');clearTimeout(wt);wt=setTimeout(()=>w.classList.remove('show'),ms||2600)}
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2400)}
 function dialog(t,p,val,ok,cb,danger){
   $('#dt').textContent=t;const pe=$('#dp');pe.textContent=p;pe.style.display=p?'block':'none';
