@@ -58,6 +58,8 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 .bub{max-width:88%;padding:10px 14px;border-radius:16px;white-space:pre-wrap;word-wrap:break-word}
 .u .bub{background:var(--user);color:var(--user-ink);border-bottom-right-radius:5px}
 .b .bub{background:var(--bot);border:0;border-bottom-left-radius:5px}
+.typing::after{content:"";display:inline-block;width:7px;height:14px;margin-left:2px;background:#F2F2F5;vertical-align:-2px;animation:caret 1s steps(2) infinite}
+@keyframes caret{50%{opacity:0}}
 .bub code{background:#000;border-radius:4px;padding:1px 5px;font-size:.92em}
 .bub pre{background:#000;border-radius:8px;padding:10px;overflow-x:auto;margin:8px 0 0;font-size:14px}
 .acts{display:flex;gap:6px;margin-top:6px}
@@ -359,11 +361,13 @@ function ask(){
   const b=add('b','<span class="think"><span class="atom" aria-label="Memuat"><span class="atom-in"><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="core"></span></span></span><b>Nusa started..</b></span>');
   const model=$('#model').value;
   const tg=webOn?['Pencarian web']:[];
-  const done=(html,copy)=>{
-    b.innerHTML=html+'<div class="acts"><button>Salin</button><button>Ulangi</button><button>Suka</button></div>';
+  const acts='<div class="acts"><button>Salin</button><button>Ulangi</button><button>Suka</button></div>';
+  const fin=copy=>{
+    if(!b.querySelector('.acts'))b.insertAdjacentHTML('beforeend',acts);
     b.querySelector('.acts').firstChild.onclick=e=>{try{navigator.clipboard.writeText(copy)}catch(_){};e.target.textContent='Tersalin'};
     busy=false;send.disabled=!inp.value.trim();sc.scrollTop=sc.scrollHeight;
   };
+  const done=(html,copy)=>{b.innerHTML=html;fin(copy)};
   if(n===1)hist[view]=[];
   if(!PROXY_URL){
     setTimeout(()=>done((view==='code'?'<span class="tg2">nusa</span> mode demo, belum terhubung ke model':'Mode demo: Nusa belum terhubung ke model. Pesanmu: <b>'+esc(t)+'</b>')+'<pre>model: '+esc(model)+'\nfitur aktif: '+(tg.join(', ')||'-')+'</pre>',t),900);
@@ -373,12 +377,28 @@ function ask(){
   const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),30000);
   fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,mode:view,messages:hist[view].slice(-20)}),signal:ctl.signal})
     .then(r=>r.json().then(d=>{if(!r.ok)throw new Error(d.error||('HTTP '+r.status));return d}))
-    .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';hist[view].push({role:'assistant',content:a});done(renderReply(a),a)})
+    .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';hist[view].push({role:'assistant',content:a});typeReply(b,a,()=>fin(a))})
     .catch(e=>{hist[view].pop();done('Maaf, Nusa gagal menjawab: '+esc(e.name==='AbortError'?'waktu habis':String(e.message)),'')})
     .finally(()=>clearTimeout(to));
 }
 const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
 const hist={chat:[],code:[]};
+function typeReply(b,text,fin){
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
+  const rate=Math.max(110,text.length/6); // karakter per detik; jawaban panjang dipercepat agar maks ~6 detik
+  let t0=null,shown=-1;b.classList.add('typing');
+  function step(ts){
+    if(t0===null)t0=ts;
+    const k=Math.min(text.length,Math.floor((ts-t0)/1000*rate));
+    if(k!==shown){
+      shown=k;b.innerHTML=renderReply(text.slice(0,k));
+      if(sc.scrollHeight-sc.scrollTop-sc.clientHeight<140)sc.scrollTop=sc.scrollHeight;
+    }
+    if(k<text.length)requestAnimationFrame(step);
+    else{b.classList.remove('typing');b.innerHTML=renderReply(text);fin()}
+  }
+  requestAnimationFrame(step);
+}
 function renderReply(x){return x.split('```').map((seg,k)=>k%2?'<pre>'+esc(seg.replace(/^\w*\n/,'').replace(/\n$/,''))+'</pre>':esc(seg).replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>')).join('')}
 function addHist(t){
   const h=$('#hist');const x=document.createElement('button');x.textContent=t;
