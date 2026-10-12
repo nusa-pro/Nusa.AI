@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
 :root{
@@ -278,7 +279,7 @@ setTimeout(end,rm?900:6000);})();
       <button class="go" id="lgo">Masuk</button>
       <button class="alt" id="lreg">Belum punya akun? Daftar dengan Gmail</button>
       <button class="alt" id="lx">Nanti saja</button>
-      <small id="lmsg">Login belum tersambung ke server (mode demo).</small>
+      <small id="lmsg"></small>
     </div></div>
     <div class="comp">
       <div class="box"><div class="psc" id="psc"></div><div class="pop" id="pop"></div>
@@ -392,10 +393,11 @@ function setView(v){
   close();
 }
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>setView(b.dataset.v));
-/* login (demo) */
+/* login (Supabase) */
 const lm=$('#lm'),loginb=$('#loginb');let user=null;
 loginb.onclick=()=>{lm.classList.add('show');$('#le').focus()};
-$('#pout').onclick=()=>{user=null;try{localStorage.removeItem('nusa_user')}catch(e){}$('#prof').style.display='none';loginb.style.display='';toast('Kamu sudah keluar')};
+const sb=supabase.createClient('https://oxnbyecopebrooescgnu.supabase.co','sb_publishable_ypgFv-AupzEMPZE46FR9RA_gtm3WYrs');
+$('#pout').onclick=()=>{user=null;try{sb.auth.signOut()}catch(e){}try{localStorage.removeItem('nusa_user')}catch(e){}$('#prof').style.display='none';loginb.style.display='';toast('Kamu sudah keluar')};
 $('#lx').onclick=()=>lm.classList.remove('show');
 let reg=false;
 function setUser(name,info,silent){info=info||{};user=name;
@@ -407,6 +409,7 @@ function setUser(name,info,silent){info=info||{};user=name;
   loginb.style.display='none';$('#prof').style.display='flex';
   if(!silent){lm.classList.remove('show');close();toast('Masuk sebagai '+name)}}
 try{const sv=JSON.parse(localStorage.getItem('nusa_user')||'null');if(sv&&sv.name&&Date.now()-sv.t<30*864e5)setUser(sv.name,{email:sv.email,picture:sv.picture},true)}catch(e){}
+sb.auth.getSession().then(r=>{const u=r&&r.data&&r.data.session&&r.data.session.user;if(u&&!user)setUser((u.email||'').split('@')[0],{email:u.email},true)}).catch(()=>{});
 const GOOGLE_CLIENT_ID='853427150004-e2gupknlko4bonlbk6pd43inkn4j155a.apps.googleusercontent.com';
 let gtc=null;
 $('#lg').onclick=()=>{
@@ -422,8 +425,8 @@ $('#lg').onclick=()=>{
     error_callback:()=>{warn('Login Google dibatalkan atau gagal.')}});}
   gtc.requestAccessToken();
 };
-let otpCode=null,otpMail=null,otpOk=false,otpTimer=null;
-function setReg(r){reg=r;otpOk=false;otpCode=null;
+let otpMail=null,otpTimer=null;
+function setReg(r){reg=r;otpMail=null;
   $('#lt').textContent=r?'Daftar akun baru':'Masuk ke Nusa';
   $('#lgo').textContent=r?'Daftar':'Masuk';
   $('#le').placeholder=r?'Alamat Gmail':'Email';
@@ -431,29 +434,45 @@ function setReg(r){reg=r;otpOk=false;otpCode=null;
   $('#lp2').style.display=r?'':'none';
   $('#lp').autocomplete=r?'new-password':'current-password';
   $('#lreg').textContent=r?'Sudah punya akun? Masuk':'Belum punya akun? Daftar dengan Gmail';
-  $('#lmsg').textContent='Login belum tersambung ke server (mode demo).'}
+  $('#lmsg').textContent=''}
 $('#lreg').onclick=()=>setReg(!reg);
-$('#le').oninput=()=>{if(otpMail&&$('#le').value.trim()!==otpMail){otpCode=null;otpOk=false}};
-$('#lsend').onclick=()=>{const e=$('#le').value.trim(),s=$('#lmsg'),b=$('#lsend');
+$('#le').oninput=()=>{if(otpMail&&$('#le').value.trim().toLowerCase()!==otpMail)otpMail=null};
+$('#lsend').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),b=$('#lsend');
   if(!/^\S+@gmail\.com$/i.test(e)){warn('Isi alamat Gmail (@gmail.com) dulu.');return}
-  /* TODO server: kirim OTP ke email lewat backend. Mode demo: kode dibuat di sini. */
-  otpMail=e;otpOk=false;otpCode=String(Math.floor(100000+Math.random()*900000));
-  warn('Mode demo: kode OTP kamu '+otpCode+' (belum dikirim ke email).',7000);
+  b.disabled=true;b.textContent='Mengirim...';
+  const {error}=await sb.auth.signInWithOtp({email:e,options:{shouldCreateUser:true}});
+  if(error){
+    b.disabled=false;b.textContent='Kirim kode';
+    warn(/rate|seconds|limit/i.test(error.message)?'Terlalu sering meminta kode. Tunggu sebentar lalu coba lagi.':'Gagal mengirim kode: '+error.message,6000);return}
+  otpMail=e;
+  warn('Kode OTP sudah dikirim ke '+e+'. Cek inbox atau folder spam.',6000);
   $('#lo').value='';$('#lo').focus();
   let t=60;b.disabled=true;b.textContent='Kirim ulang ('+t+')';
   clearInterval(otpTimer);otpTimer=setInterval(()=>{t--;if(t<=0){clearInterval(otpTimer);b.disabled=false;b.textContent='Kirim ulang'}else b.textContent='Kirim ulang ('+t+')'},1000)};
-$('#lgo').onclick=()=>{const e=$('#le').value.trim(),p=$('#lp').value,s=$('#lmsg');
+$('#lgo').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),p=$('#lp').value,g=$('#lgo');
   if(!/^\S+@\S+\.\S+$/.test(e)){warn('Isi email yang valid.');return}
-  if(reg){
-    if(!/@gmail\.com$/i.test(e)){warn('Pendaftaran memakai alamat Gmail (@gmail.com).');return}
-    if(!otpCode||otpMail!==e){warn('Tekan "Kirim kode" dulu untuk dapat kode OTP.');return}
-    if($('#lo').value.trim()!==otpCode){warn('Kode OTP salah.');return}
-    otpOk=true;
-    if(p.length<6){warn('Kata sandi minimal 6 karakter.');return}
-    if(p!==$('#lp2').value){warn('Konfirmasi kata sandi tidak sama.');return}
-    otpCode=null;
-  }else if(p.length<6){warn('Kata sandi minimal 6 karakter.');return}
-  setUser(e.split('@')[0],{email:e});
+  if(p.length<6){warn('Kata sandi minimal 6 karakter.');return}
+  g.disabled=true;
+  try{
+    if(reg){
+      if(!/@gmail\.com$/i.test(e)){warn('Pendaftaran memakai alamat Gmail (@gmail.com).');return}
+      if(p!==$('#lp2').value){warn('Konfirmasi kata sandi tidak sama.');return}
+      if(otpMail!==e){warn('Tekan "Kirim kode" dulu untuk dapat kode OTP.');return}
+      const tok=$('#lo').value.trim();
+      if(!/^\d{6}$/.test(tok)){warn('Masukkan 6 digit kode OTP dari email.');return}
+      const v=await sb.auth.verifyOtp({email:e,token:tok,type:'email'});
+      if(v.error){warn('Kode OTP salah atau kedaluwarsa.');return}
+      const u=await sb.auth.updateUser({password:p});
+      if(u.error){warn('Gagal menyimpan kata sandi: '+u.error.message,6000);return}
+      otpMail=null;
+      setUser(e.split('@')[0],{email:e});
+    }else{
+      const r=await sb.auth.signInWithPassword({email:e,password:p});
+      if(r.error){warn('Email atau kata sandi salah.');return}
+      setUser(e.split('@')[0],{email:e});
+    }
+  }catch(err){warn('Terjadi kesalahan jaringan. Coba lagi.')}
+  finally{g.disabled=false}
 };
 /* project */
 const pj=[];
