@@ -329,6 +329,37 @@ const starters=[
  ['Rencanakan sesuatu','Susun jadwal belajar 4 minggu untuk UTBK']
 ];
 let busy=false,n=0;
+let cur=null,convs=[];
+const LSK='nusa_convs_v1';
+function saveConvs(){try{localStorage.setItem(LSK,JSON.stringify(convs.slice(0,60)))}catch(e){}}
+function loadConvs(){try{const a=JSON.parse(localStorage.getItem(LSK)||'[]');convs=Array.isArray(a)?a.filter(c=>c&&c.id&&typeof c.title==='string'&&Array.isArray(c.msgs)&&(c.view==='chat'||c.view==='code')):[]}catch(e){convs=[]}}
+function apiHist(c){const o=[];c.msgs.forEach((m,i)=>{if(m.err)return;const nx=c.msgs[i+1];if(m.r==='u'&&nx&&nx.err)return;o.push({role:m.r==='u'?'user':'assistant',content:m.t})});return o.slice(-20)}
+const ACTS='<div class="acts"><button>Salin</button><button>Ulangi</button><button>Suka</button></div>';
+function renderHist(){
+  const h=$('#hist');h.innerHTML='<small>Hari ini</small>';curHist=null;
+  [...convs].sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||(b.ts||0)-(a.ts||0)).forEach(c=>{
+    const x=document.createElement('button');x.textContent=c.title;x.dataset.id=c.id;
+    if(c.pin)x.classList.add('pin');
+    if(cur&&cur.id===c.id){x.classList.add('on');curHist=x}
+    x.onclick=()=>openConv(c.id);h.appendChild(x);
+  });
+}
+function openConv(id){
+  const c=convs.find(x=>x.id===id);if(!c)return;
+  cur=c;busy=false;n=c.msgs.filter(m=>m.r==='u').length;
+  view=c.view;last=view;document.body.dataset.view=view;
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
+  $('#model').value=view==='code'?'Nusa Kode':'Nusa Cepat';
+  inp.placeholder=MODES[view].ph;convTitle[view]=c.title;$('#title').textContent=c.title;
+  chat.innerHTML='';
+  c.msgs.forEach(m=>{
+    if(typeof m.t!=='string')return;
+    if(m.r==='u')add('u',m.t);
+    else{const b=add('b',m.err?esc(m.t):renderReply(m.t));
+      if(!m.err){b.insertAdjacentHTML('beforeend',ACTS);b.querySelector('.acts').firstChild.onclick=e=>{try{navigator.clipboard.writeText(m.t)}catch(_){};e.target.textContent='Tersalin'}}}
+  });
+  renderHist();renderPop();grow();close();sc.scrollTop=sc.scrollHeight;
+}
 const codeStarters=[
  ['Tulis fungsi','Buat fungsi Python untuk validasi NIK'],
  ['Perbaiki error','Kenapa muncul error undefined is not a function di JavaScript?'],
@@ -345,7 +376,7 @@ function hero(){
   const m=MODES[view];
   chat.innerHTML='<div class="hero"><div class="hl">N</div><h1></h1><p></p></div>';
   chat.querySelector('h1').textContent=Array.isArray(m.h)?m.h[Math.floor(Math.random()*m.h.length)]:m.h;chat.querySelector('p').textContent=m.p;
-  inp.placeholder=m.ph;convTitle[view]=m.t;$('#title').textContent=m.t;curHist=null;
+  inp.placeholder=m.ph;convTitle[view]=m.t;$('#title').textContent=m.t;curHist=null;cur=null;renderHist();
 }
 function add(role,text){
   const m=document.createElement('div');m.className='msg '+(role==='u'?'u':'b');
@@ -356,8 +387,11 @@ function add(role,text){
 function esc(t){return t.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function ask(){
   const t0=inp.value.trim();if((!t0&&!att.length)||busy)return;const t=t0||('Lampiran: '+att.map(a=>a.n).join(', '));
-  if(n===0){chat.innerHTML='';convTitle[view]=t.slice(0,40);$('#title').textContent=convTitle[view];addHist(t)}
-  n++;add('u',t0&&att.length?t+'\nLampiran: '+att.map(a=>a.n).join(', '):t);att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
+  const shown=t0&&att.length?t+'\nLampiran: '+att.map(a=>a.n).join(', '):t;
+  if(!cur){chat.innerHTML='';const ti=t.slice(0,40);convTitle[view]=ti;$('#title').textContent=ti;
+    cur={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),view:view,title:ti,msgs:[],pin:false,ts:Date.now()};convs.unshift(cur);renderHist()}
+  const c=cur;c.msgs.push({r:'u',t:shown});c.ts=Date.now();saveConvs();
+  n++;add('u',shown);att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
   const b=add('b','<span class="think"><span class="atom" aria-label="Memuat"><span class="atom-in"><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="core"></span></span></span><b>Nusa started..</b></span>');
   const model=$('#model').value;
   const tg=webOn?['Pencarian web']:[];
@@ -368,17 +402,17 @@ function ask(){
     busy=false;send.disabled=!inp.value.trim();sc.scrollTop=sc.scrollHeight;
   };
   const done=(html,copy)=>{b.innerHTML=html;fin(copy)};
-  if(n===1)hist[view]=[];
+  
   if(!PROXY_URL){
     setTimeout(()=>done((view==='code'?'<span class="tg2">nusa</span> mode demo, belum terhubung ke model':'Mode demo: Nusa belum terhubung ke model. Pesanmu: <b>'+esc(t)+'</b>')+'<pre>model: '+esc(model)+'\nfitur aktif: '+(tg.join(', ')||'-')+'</pre>',t),900);
     return;
   }
-  hist[view].push({role:'user',content:t});
+  
   const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),30000);
-  fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,mode:view,messages:hist[view].slice(-20)}),signal:ctl.signal})
+  fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,mode:view,messages:apiHist(c)}),signal:ctl.signal})
     .then(r=>r.json().then(d=>{if(!r.ok)throw new Error(d.error||('HTTP '+r.status));return d}))
-    .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';hist[view].push({role:'assistant',content:a});typeReply(b,a,()=>fin(a))})
-    .catch(e=>{hist[view].pop();done('Maaf, Nusa gagal menjawab: '+esc(e.name==='AbortError'?'waktu habis':String(e.message)),'')})
+    .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();typeReply(b,a,()=>fin(a))})
+    .catch(e=>{const em='Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>clearTimeout(to));
 }
 const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
@@ -578,11 +612,11 @@ async function shareChat(){
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e});
 function addHome(){if(dp){dp.prompt();dp=null;return}toast('Buka menu browser, lalu pilih Tambahkan ke layar utama')}
 function act(a){
-  if(a==='pin'){if(!need())return;const on=curHist.classList.toggle('pin');if(on)histEl.insertBefore(curHist,histEl.children[1]);toast(on?'Obrolan disematkan':'Sematan dilepas')}
+  if(a==='pin'){if(!need())return;cur.pin=!cur.pin;saveConvs();renderHist();toast(cur.pin?'Obrolan disematkan':'Sematan dilepas')}
   else if(a==='share'){if(need())shareChat()}
-  else if(a==='rename'){if(!need())return;dialog('Ganti nama obrolan','',convTitle[view],'Simpan',v=>{if(!v)return;convTitle[view]=v;$('#title').textContent=v;curHist.textContent=v;toast('Nama diganti')})}
+  else if(a==='rename'){if(!need())return;dialog('Ganti nama obrolan','',convTitle[view],'Simpan',v=>{if(!v)return;convTitle[view]=v;$('#title').textContent=v;cur.title=v;saveConvs();renderHist();toast('Nama diganti')})}
   else if(a==='home')addHome();
-  else if(a==='del'){if(!need())return;dialog('Hapus obrolan ini?','Obrolan dihapus dari riwayat dan tidak bisa dikembalikan.',null,'Hapus',()=>{curHist.remove();n=0;busy=false;hero();grow();toast('Obrolan dihapus')},true)}
+  else if(a==='del'){if(!need())return;dialog('Hapus obrolan ini?','Obrolan dihapus dari riwayat dan tidak bisa dikembalikan.',null,'Hapus',()=>{convs=convs.filter(x=>x!==cur);saveConvs();n=0;busy=false;hero();grow();toast('Obrolan dihapus')},true)}
 }
 more.onclick=e=>{e.stopPropagation();if(dd.classList.contains('show')){dd.classList.remove('show');return}
   dd.querySelector('[data-a="pin"] span').textContent=curHist&&curHist.classList.contains('pin')?'Lepas sematan':'Sematkan';dd.classList.add('show')};
@@ -609,7 +643,7 @@ mic.onclick=async()=>{
     tk=setInterval(()=>{tmEl.textContent=fmt(Math.round((Date.now()-t0)/1000))},500);
   }catch(_){toast('Mikrofon tidak bisa diakses. Izinkan akses mikrofon.')}
 };
-hero();renderPop();
+loadConvs();hero();renderPop();
 </script>
 </body>
 </html>
