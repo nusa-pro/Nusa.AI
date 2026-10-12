@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Server kecil untuk Termux: menerima perintah dari terminal Nusa dan menjalankannya.
 Hanya library bawaan Python. Hanya mendengarkan 127.0.0.1 dan wajib token."""
-import json, os, secrets, signal, subprocess, tempfile
+import json, os, secrets, shutil, signal, subprocess, tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = int(os.environ.get('NUSA_PORT', '8765'))
@@ -16,12 +16,13 @@ else:
     os.chmod(TF, 0o600)
 CWD = os.path.expanduser('~')
 M = '__NUSA_CWD__'
+SH = shutil.which('bash') or shutil.which('sh') or '/bin/sh'
 
 def run(cmd):
     global CWD
     f = tempfile.TemporaryFile()
     script = cmd + '\n__s=$?; printf "\\n' + M + '%s" "$PWD"; exit $__s'
-    p = subprocess.Popen(script, shell=True, cwd=CWD, stdin=subprocess.DEVNULL,
+    p = subprocess.Popen(script, shell=True, executable=SH, cwd=CWD, stdin=subprocess.DEVNULL,
                          stdout=f, stderr=subprocess.STDOUT, start_new_session=True)
     note = ''
     try:

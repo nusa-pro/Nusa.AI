@@ -368,7 +368,7 @@ const codeStarters=[
 ];
 const MODES={
  chat:{h:['Ngobrolin apa nih?','Gas, mau tanya apa?','Sini, lempar aja','Lagi ada ide apa?','Nusa udah standby, ayo'],p:'Nusa.ai',ph:'Tanya apa saja ke Nusa…',t:'Obrolan baru'},
- code:{h:'Nusa Terminal v0.1',p:'Ketik help untuk daftar perintah. Contoh: echo "print(1+1)" > a.py lalu python a.py',ph:'$ ketik perintah…',t:'Sesi terminal'}
+ code:{h:'Nusa Terminal v0.2',p:'Ketik help untuk daftar perintah. Contoh: echo "print(1+1)" > a.py lalu python a.py',ph:'$ ketik perintah…',t:'Sesi terminal'}
 };
 let view='chat';
 const convTitle={chat:'Obrolan baru',code:'Sesi terminal'};
@@ -680,7 +680,7 @@ function runJs(code){return new Promise(ok=>{
 async function cmd(c,a){
   const fl=a.filter(x=>x[0]==='-'),ar=a.filter(x=>x[0]!=='-');
   switch(c){
-  case 'help':return 'Perintah: help, clear, pwd, ls, cd, mkdir [-p], touch, cat, echo [-e], rm [-r], date, whoami, uname\nTulis file: echo "teks" > file  atau  >> file\nJalankan kode: python file.py | python -c "print(1)" | node file.js | node -e "console.log(1)"\nTermux: connect http://127.0.0.1:8765 TOKEN (shell Linux asli)\nPerintah lain dikirim ke Nusa (AI). Terminal ini jalan di browser, bukan Linux asli.';
+  case 'help':return 'Nusa Terminal v0.2\nPerintah: help, clear, pwd, ls, cd, mkdir [-p], touch, cat, echo [-e], rm [-r], date, whoami, uname\nTulis file: echo "teks" > file  atau  >> file\nJalankan kode: python file.py | python -c "print(1)" | node file.js | node -e "console.log(1)"\nTermux: connect http://127.0.0.1:8765 TOKEN (shell Linux asli)\nPerintah lain dikirim ke Nusa (AI). Terminal ini jalan di browser, bukan Linux asli.';
   case 'clear':return CLR;
   case 'pwd':return cwd;
   case 'whoami':return 'nusa';
@@ -732,7 +732,7 @@ async function remote(line){
   try{const r=await fetch(LINK.u,{method:'POST',headers:{'Authorization':'Bearer '+LINK.t,'Content-Type':'application/json'},body:JSON.stringify({cmd:line})});
     if(r.status===401)return 'Token salah. Ketik connect lagi dengan token terbaru.';
     return (await r.json()).out||''}
-  catch(e){return 'Gagal terhubung ke Termux. Pastikan "python nusa-server.py" masih jalan.'}
+  catch(e){return 'Gagal terhubung ke Termux. Pastikan "python nusa-server.py" masih jalan, atau ketik disconnect untuk memakai terminal browser.'}
 }
 async function runLocal(line){
   const w=line.split(/\s+/)[0];
