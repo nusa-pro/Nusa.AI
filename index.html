@@ -61,10 +61,25 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 .bub pre{background:#000;border-radius:8px;padding:10px;overflow-x:auto;margin:8px 0 0;font-size:14px}
 .acts{display:flex;gap:6px;margin-top:6px}
 .acts button{background:none;border:0;color:var(--muted);font-size:13px;padding:2px 4px}
-.dots span{display:inline-block;width:7px;height:7px;margin-right:4px;border-radius:50%;background:var(--muted);animation:b 1s infinite}
-.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
-@keyframes b{50%{transform:translateY(-4px);opacity:.4}}
-@media (prefers-reduced-motion:reduce){.dots span{animation:none}}
+/* loading atom 3D */
+.think{display:inline-flex;align-items:center;gap:8px}
+.atom{width:18px;height:18px;perspective:120px;display:block;flex:none}
+.atom-in{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;animation:atomspin 3.2s linear infinite}
+.ring{position:absolute;inset:0;display:block;border:1.2px solid #F2F2F5;border-radius:50%;transform-style:preserve-3d;box-shadow:none}
+.ring:nth-child(1){transform:rotateZ(0deg) rotateX(72deg)}
+.ring:nth-child(2){transform:rotateZ(60deg) rotateX(72deg)}
+.ring:nth-child(3){transform:rotateZ(120deg) rotateX(72deg)}
+.orb{position:absolute;inset:0;display:block;transform-style:preserve-3d;animation:orbit 1.6s linear infinite}
+.ring:nth-child(2) .orb{animation-duration:2s;animation-direction:reverse}
+.ring:nth-child(3) .orb{animation-duration:2.4s}
+.orb i{position:absolute;left:50%;top:-2px;width:3px;height:3px;margin-left:-1.5px;border-radius:50%;background:#fff;box-shadow:none}
+.core{position:absolute;display:block;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#fff;box-shadow:none;animation:pulse 1.4s ease-in-out infinite}
+.think b{font-weight:400;font-size:14px;background:linear-gradient(90deg,#6b7280 0%,#F2F2F5 50%,#6b7280 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:shine 1.8s linear infinite}
+@keyframes shine{from{background-position:200% 0}to{background-position:-200% 0}}
+@keyframes atomspin{from{transform:rotateX(18deg) rotateY(0)}to{transform:rotateX(18deg) rotateY(360deg)}}
+@keyframes orbit{to{transform:rotateZ(360deg)}}
+@keyframes pulse{50%{transform:scale(.7);opacity:.7}}
+@media (prefers-reduced-motion:reduce){.atom-in,.orb,.core,.think b{animation-duration:8s}}
 /* composer */
 .comp{padding:8px 14px 12px;background:var(--bg)}
 .box{max-width:720px;margin:0 auto;background:var(--panel);border:0;border-radius:20px;padding:8px}
@@ -340,7 +355,7 @@ function ask(){
   const t0=inp.value.trim();if((!t0&&!att.length)||busy)return;const t=t0||('Lampiran: '+att.map(a=>a.n).join(', '));
   if(n===0){chat.innerHTML='';convTitle[view]=t.slice(0,40);$('#title').textContent=convTitle[view];addHist(t)}
   n++;add('u',t0&&att.length?t+'\nLampiran: '+att.map(a=>a.n).join(', '):t);att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
-  const b=add('b','<span class="dots"><span></span><span></span><span></span></span>');
+  const b=add('b','<span class="think"><span class="atom" aria-label="Memuat"><span class="atom-in"><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="core"></span></span></span><b>Nusa started..</b></span>');
   const model=$('#model').value;
   const tg=webOn?['Pencarian web']:[];
   setTimeout(()=>{
