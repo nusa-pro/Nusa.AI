@@ -246,6 +246,9 @@ button:active{opacity:.65}
 .pvh b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pvh button{flex:none;width:auto;padding:8px 14px;border-radius:12px}
 #pvf{flex:1;border:0;background:#fff}
+.gimg{display:block;max-width:100%;border-radius:12px;margin-bottom:6px}
+#aimg{display:none;max-width:100%;max-height:50vh;object-fit:contain;border-radius:12px;align-self:center}
+.af img.th{width:40px;height:40px;border-radius:8px;object-fit:cover;flex:none}
 /* animasi halus */
 :root{--t:.2s;--e:cubic-bezier(.25,.8,.25,1)}
 button{transition:transform var(--t) var(--e),opacity var(--t) var(--e),background-color var(--t) var(--e),color var(--t) var(--e);-webkit-tap-highlight-color:transparent}
@@ -305,7 +308,7 @@ setTimeout(end,rm?900:6000);})();
       <button class="alt" id="dno">Batal</button>
     </div></div>
     <div class="modal" id="am" role="dialog" aria-modal="true"><div class="card av">
-      <h2 id="at"></h2><p id="ap"></p><pre id="ac"></pre>
+      <h2 id="at"></h2><p id="ap"></p><pre id="ac"></pre><img id="aimg" alt="">
       <div class="arow"><button class="go" id="acopy">Salin</button><button class="alt" id="adl">Unduh</button></div>
       <div class="arow"><button class="alt" id="apv">Pratinjau</button><button class="alt" id="adel">Hapus</button></div>
       <button class="alt" id="aclose">Tutup</button>
@@ -387,6 +390,7 @@ function openConv(id){
   c.msgs.forEach(m=>{
     if(typeof m.t!=='string')return;
     if(m.r==='u')add('u',m.t);
+    else if(m.art){const b=add('b',''),a=arts.find(x=>x.id===m.art);if(a)fillImg(b,a.content,a.name);else b.textContent='(gambar sudah dihapus dari Artefak)'}
     else{const b=add('b',m.err?esc(m.t):renderReply(m.t));
       if(!m.err){b.insertAdjacentHTML('beforeend',ACTS);b.querySelector('.acts').firstChild.onclick=e=>{try{navigator.clipboard.writeText(m.t)}catch(_){};e.target.textContent='Tersalin'}}}
   });
@@ -428,6 +432,17 @@ function ask(){
   };
   const done=(html,copy)=>{b.innerHTML=html;fin(copy)};
   
+  const ip=imgPrompt(t);
+  if(ip!==null&&IMG_URL){
+    const ct=new AbortController(),tm=setTimeout(()=>ct.abort(),60000);
+    genImage(ip,ct.signal).then(url=>{
+      const nm='gambar-'+new Date().toISOString().slice(0,10)+'-'+Math.random().toString(36).slice(2,5)+'.jpg',id='a'+Date.now().toString(36)+'i';
+      arts.unshift({id:id,name:nm,content:url,img:true,ts:Date.now(),from:c.title,prompt:ip});saveArts();
+      c.msgs.push({r:'b',t:'Gambar: '+ip,art:id});c.ts=Date.now();saveConvs();
+      fillImg(b,url,nm);busy=false;send.disabled=!inp.value.trim();sc.scrollTop=sc.scrollHeight;toast('Gambar disimpan di Artefak');
+    }).catch(e=>{const em='Maaf, gambar gagal dibuat: '+(e.name==='AbortError'?'waktu habis':e.message);c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')}).finally(()=>clearTimeout(tm));
+    return;
+  }
   if(!PROXY_URL){
     setTimeout(()=>done(('Mode demo: Nusa belum terhubung ke model. Pesanmu: <b>'+esc(t)+'</b>')+'<pre>model: '+esc(model)+'\nfitur aktif: '+(tg.join(', ')||'-')+'</pre>',t),900);
     return;
@@ -440,6 +455,7 @@ function ask(){
     .catch(e=>{const em='Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>clearTimeout(to));
 }
+const IMG_URL='https://nusa-picture.pinnshiki.workers.dev/'; // Worker khusus gambar
 const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
 function typeReply(b,text,fin){
   if(matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
@@ -586,7 +602,7 @@ $('#lgo').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),p=$('#lp
 /* artefak: file dari AI tersimpan otomatis */
 const AK='nusa_arts_v1';let arts=[],curArt=null;
 try{const o=JSON.parse(localStorage.getItem(AK)||'[]');if(Array.isArray(o))arts=o.filter(x=>x&&x.id&&typeof x.name==='string'&&typeof x.content==='string')}catch(e){}
-const saveArts=()=>{try{localStorage.setItem(AK,JSON.stringify(arts.slice(0,100)))}catch(e){}};
+const saveArts=()=>{for(let i=0;i<40;i++){try{localStorage.setItem(AK,JSON.stringify(arts.slice(0,100)));return}catch(e){const j=arts.map(x=>!!x.img).lastIndexOf(true);if(j<0)return;arts.splice(j,1)}}};
 const EXT={javascript:'js',typescript:'ts',python:'py',bash:'sh',shell:'sh',zsh:'sh',markdown:'md',kotlin:'kt',yml:'yaml',text:'txt',plain:'txt',plaintext:'txt',htm:'html',csharp:'cs','c++':'cpp',golang:'go',rust:'rs',ruby:'rb'};
 const FNR=/[\w\-]+\.(?:html?|css|jsx?|tsx?|json|py|md|txt|sh|java|kt|c|cpp|cs|go|rs|php|sql|xml|ya?ml|csv|rb|swift)\b/ig;
 function extractArts(text,from){
@@ -614,23 +630,47 @@ function renderArts(){
   const l=$('#alist');l.innerHTML='';
   if(!arts.length){const p=document.createElement('p');p.style.marginTop='14px';p.textContent='Belum ada file. Minta Nusa membuat file (misalnya "buatkan index.html"), hasilnya tersimpan di sini.';l.appendChild(p);return}
   arts.forEach(a=>{
-    const r=document.createElement('button');r.type='button';r.className='af';r.innerHTML=AICON+'<span class="ai"><b></b><small></small></span>';
+    const r=document.createElement('button');r.type='button';r.className='af';r.innerHTML=(a.img?'<img class="th" alt="">':AICON)+'<span class="ai"><b></b><small></small></span>';if(a.img)r.firstChild.src=a.content;
     r.querySelector('b').textContent=a.name;
-    r.querySelector('small').textContent=a.name.split('.').pop().toUpperCase()+' · '+fmtSize(a.content.length)+' · '+new Date(a.ts).toLocaleDateString('id-ID',{day:'numeric',month:'short'});
+    r.querySelector('small').textContent=a.name.split('.').pop().toUpperCase()+' · '+fmtSize(a.img?Math.round(a.content.length*.75):a.content.length)+' · '+new Date(a.ts).toLocaleDateString('id-ID',{day:'numeric',month:'short'});
     r.onclick=()=>openArt(a);l.appendChild(r);
   });
 }
 const am=$('#am');
 function openArt(a){
-  curArt=a;$('#at').textContent=a.name;$('#ap').textContent=fmtSize(a.content.length)+(a.from?' · dari "'+a.from+'"':'');
-  $('#ac').textContent=a.content;$('#apv').style.display=/\.html?$/i.test(a.name)?'':'none';am.classList.add('show');
+  curArt=a;$('#at').textContent=a.name;
+  const im=!!a.img;$('#ac').style.display=im?'none':'';$('#aimg').style.display=im?'block':'none';
+  if(im)$('#aimg').src=a.content;else $('#ac').textContent=a.content;
+  $('#ap').textContent=im?(a.prompt?'"'+a.prompt+'"':'Gambar buatan Nusa'):fmtSize(a.content.length)+(a.from?' · dari "'+a.from+'"':'');
+  $('#acopy').style.display=im?'none':'';$('#apv').style.display=!im&&/\.html?$/i.test(a.name)?'':'none';am.classList.add('show');
 }
 $('#aclose').onclick=()=>am.classList.remove('show');
 $('#acopy').onclick=async()=>{try{await navigator.clipboard.writeText(curArt.content);toast('Disalin')}catch(e){toast('Tidak bisa menyalin di sini')}};
-$('#adl').onclick=()=>{const u=URL.createObjectURL(new Blob([curArt.content],{type:'text/plain'})),l=document.createElement('a');l.href=u;l.download=curArt.name;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),3000)};
+$('#adl').onclick=()=>{if(curArt.img){dlUrl(curArt.content,curArt.name);return}const u=URL.createObjectURL(new Blob([curArt.content],{type:'text/plain'}));dlUrl(u,curArt.name);setTimeout(()=>URL.revokeObjectURL(u),3000)};
 $('#adel').onclick=()=>{const a=curArt;am.classList.remove('show');dialog('Hapus file ini?',a.name+' dihapus dari Artefak.',null,'Hapus',()=>{arts=arts.filter(x=>x!==a);saveArts();renderArts();toast('File dihapus')},true)};
 $('#apv').onclick=()=>{$('#pvt').textContent=curArt.name;$('#pvf').srcdoc=curArt.content;$('#pvm').classList.add('show')};
 $('#pvc').onclick=()=>{$('#pvm').classList.remove('show');$('#pvf').srcdoc=''};
+/* gambar dari AI */
+function dlUrl(u,n){const l=document.createElement('a');l.href=u;l.download=n;document.body.appendChild(l);l.click();l.remove()}
+function fillImg(b,url,name){
+  b.innerHTML='<img class="gimg" alt="Gambar buatan Nusa">';b.firstChild.src=url;b.insertAdjacentHTML('beforeend',ACTS);
+  const bt=b.querySelector('.acts').firstChild;bt.textContent='Unduh';bt.onclick=()=>dlUrl(url,name);
+}
+const IMGV=/\b(?:buat(?:kan|in)?|bikin(?:kan|in)?|generate|create|draw|make)\s+(?:(?:aku|saya|gw|gue|dong|sebuah|satu|an?)\s+)*(gambar|foto|ilustrasi|logo|poster|lukisan|wallpaper|image|picture|photo|illustration)\b\s*(?:tentang|of|dari)?/i;
+const IMGP={foto:'photo of',photo:'photo of',ilustrasi:'illustration of',illustration:'illustration of',logo:'logo',poster:'poster',lukisan:'painting',wallpaper:'wallpaper'};
+function imgPrompt(t){
+  let m=t.match(/^\/(?:gambar|img|image)\s+([\s\S]+)/i);if(m)return m[1].trim();
+  m=t.match(IMGV);if(m){const r=t.slice(m.index+m[0].length).trim();return r?((IMGP[m[1].toLowerCase()]||'')+' '+r).trim():t}
+  m=t.match(/\b(?:gambarkan|gambarin|lukiskan)\s+/i);if(m){const r=t.slice(m.index+m[0].length).trim();return r||t}
+  return null;
+}
+function shrink(src){return new Promise(ok=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1024/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',.82))};im.onerror=()=>ok(src);im.src=src})}
+async function genImage(prompt,signal){
+  const r=await fetch(IMG_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'image',prompt:prompt}),signal:signal}).catch(e=>{if(e.name==='AbortError')throw e;throw new Error('Worker gambar tidak terjangkau. Cek nama nusa-picture dan deploy-nya.')});
+  const d=await r.json().catch(()=>({}));
+  if(!d.image)throw new Error(d.error||(d.reply?'Worker belum mendukung gambar':'HTTP '+r.status));
+  return shrink(d.image);
+}
 renderArts();
 /* lampiran */
 const att=[];
@@ -688,22 +728,24 @@ dd.querySelectorAll('button').forEach(b=>b.onclick=()=>act(b.dataset.a));
 let webOn=false,rec=null,chunks=[],t0=0,tk=0;
 const mic=$('#mic'),tmEl=$('#tm');
 const fmt=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
-mic.onclick=async()=>{
-  if(rec){rec.stop();return}
-  try{
-    const st=await navigator.mediaDevices.getUserMedia({audio:true});
-    rec=new MediaRecorder(st);chunks=[];t0=Date.now();
-    rec.ondataavailable=e=>chunks.push(e.data);
-    rec.onstop=()=>{
-      clearInterval(tk);st.getTracks().forEach(x=>x.stop());
-      const sec=Math.round((Date.now()-t0)/1000),blob=new Blob(chunks,{type:rec.mimeType});
-      rec=null;mic.classList.remove('rec');tmEl.textContent='';
-      if(sec<1)return;
-      att.push({n:'Voice note '+fmt(sec),s:blob.size,img:null,voice:true});renderAtt();
-    };
-    rec.start();mic.classList.add('rec');tmEl.textContent='0:00';
-    tk=setInterval(()=>{tmEl.textContent=fmt(Math.round((Date.now()-t0)/1000))},500);
-  }catch(_){toast('Mikrofon tidak bisa diakses. Izinkan akses mikrofon.')}
+/* input suara: ucapan diubah jadi teks agar AI bisa membacanya */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let sr=null,srOn=false,srBase='';
+function srRun(){
+  const r=new SR();sr=r;r.lang='id-ID';r.interimResults=true;
+  r.onresult=e=>{let t='';for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;inp.value=srBase+t;grow();send.disabled=!inp.value.trim()};
+  r.onerror=e=>{const m={'not-allowed':'Izinkan akses mikrofon.','service-not-allowed':'Izinkan akses mikrofon.','network':'Input suara butuh internet.','audio-capture':'Mikrofon tidak ditemukan.'}[e.error];if(m){toast(m);srOn=false}};
+  r.onend=()=>{srBase=inp.value?inp.value.replace(/\s*$/,' '):'';if(srOn){try{srRun();return}catch(_){}}srStop()};
+  r.start();
+}
+function srStop(){srOn=false;sr=null;clearInterval(tk);mic.classList.remove('rec');tmEl.textContent=''}
+mic.onclick=()=>{
+  if(srOn){srOn=false;try{sr.stop()}catch(_){}return}
+  if(!SR){toast('Browser ini belum mendukung input suara. Coba Chrome.');return}
+  srOn=true;srBase=inp.value?inp.value.replace(/\s*$/,' '):'';t0=Date.now();
+  try{srRun()}catch(_){srStop();return}
+  mic.classList.add('rec');tmEl.textContent='0:00';
+  tk=setInterval(()=>{tmEl.textContent=fmt(Math.round((Date.now()-t0)/1000))},500);
 };
 const hm=document.createElement('div');hm.className='hm';hm.id='hm';document.body.appendChild(hm);
 [['rename','Ubah nama'],['pin','Sematkan'],['share','Bagikan'],['del','Hapus']].forEach(([a,l])=>{
