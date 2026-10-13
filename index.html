@@ -242,6 +242,7 @@ body[data-view="latih"] .scroll,body[data-view="latih"] .comp{display:none}
 .card textarea{background:var(--raise);min-height:150px;resize:vertical;margin:0}
 .pg textarea{min-height:120px;resize:vertical}
 .pg>.col>.go,.pg>.col>.alt{display:block;width:100%}
+.chk{display:flex;gap:10px;align-items:center;margin:4px 0 12px;color:var(--ink);font-size:15px}
 /* artefak */
 .af{display:flex;align-items:center;gap:12px;width:100%;background:var(--panel);border:0;border-radius:14px;padding:12px 14px;margin-top:8px;text-align:left}
 .af:hover{background:var(--raise)}
@@ -318,6 +319,7 @@ setTimeout(end,rm?900:6000);})();
       <h3>Kepribadian dan instruksi</h3>
       <select id="ps"><option value="">Gaya bawaan</option><option value="santai">Santai dan akrab</option><option value="formal">Formal dan sopan</option><option value="singkat">Singkat dan langsung</option><option value="detail">Rinci dengan contoh</option></select>
       <textarea id="pt" maxlength="1500" placeholder="Instruksi tambahan. Contoh: Panggil aku Bos. Selalu akhiri dengan satu tips."></textarea>
+      <label class="chk"><input type="checkbox" id="pmir" checked> Samakan gaya bahasa dengan aku (santai kalau aku santai)</label>
       <button class="go" id="psave">Simpan instruksi</button>
       <h3>Pengetahuan</h3>
       <p>Tambahkan catatan atau file teks (.txt, .md, .csv, .json). Nusa mencarinya otomatis saat menjawab.</p>
@@ -712,15 +714,15 @@ async function genImage(prompt,signal){
 }
 /* latih nusa: kepribadian + pengetahuan (RAG sederhana di browser) */
 const PK='nusa_persona_v1',KK='nusa_kb_v1',KMAX=400000;
-let persona={style:'',text:''},kb=[],curKB=null;
-try{const o=JSON.parse(localStorage.getItem(PK)||'null');if(o&&typeof o==='object')persona={style:String(o.style||''),text:String(o.text||'')}}catch(e){}
+let persona={style:'',text:'',mirror:true},kb=[],curKB=null;
+try{const o=JSON.parse(localStorage.getItem(PK)||'null');if(o&&typeof o==='object')persona={style:String(o.style||''),text:String(o.text||''),mirror:o.mirror!==false}}catch(e){}
 try{const o=JSON.parse(localStorage.getItem(KK)||'[]');if(Array.isArray(o))kb=o.filter(x=>x&&x.id&&typeof x.text==='string'&&typeof x.title==='string')}catch(e){}
 const STY={santai:'Gunakan bahasa Indonesia santai dan akrab, seperti ngobrol dengan teman.',formal:'Gunakan bahasa Indonesia yang formal dan sopan.',singkat:'Jawab sesingkat mungkin dan langsung ke inti.',detail:'Jelaskan dengan rinci dan runtut, sertakan contoh.'};
 const saveKB=()=>{try{localStorage.setItem(KK,JSON.stringify(kb))}catch(e){toast('Penyimpanan penuh, hapus beberapa catatan');return false}return true};
 const kbTotal=ex=>kb.filter(x=>x!==ex).reduce((a,d)=>a+d.text.length,0);
 function personaText(){return [STY[persona.style]||'',persona.text.trim()].filter(Boolean).join('\n')}
-function loadPersona(){$('#ps').value=persona.style;$('#pt').value=persona.text}
-$('#psave').onclick=()=>{persona={style:$('#ps').value,text:$('#pt').value.trim().slice(0,1500)};try{localStorage.setItem(PK,JSON.stringify(persona))}catch(e){}toast(personaText()?'Instruksi disimpan':'Instruksi dikosongkan')};
+function loadPersona(){$('#ps').value=persona.style;$('#pt').value=persona.text;$('#pmir').checked=persona.mirror}
+$('#psave').onclick=()=>{persona={style:$('#ps').value,text:$('#pt').value.trim().slice(0,1500),mirror:$('#pmir').checked};try{localStorage.setItem(PK,JSON.stringify(persona))}catch(e){}toast(personaText()?'Instruksi disimpan':'Instruksi dikosongkan')};
 const STOP=new Set('yang dan di ke dari untuk dengan pada itu ini adalah apa siapa kapan dimana bagaimana kenapa saya aku kamu nusa tolong berapa the and what who how'.split(' '));
 const tok=s=>(s.toLowerCase().match(/[a-z0-9\u00C0-\u024F]+/g)||[]).filter(w=>w.length>2&&!STOP.has(w)).map(w=>w.length>5?w.replace(/(nya|kah|lah|kan|an)$/,''):w);
 function kbChunks(){
@@ -739,9 +741,23 @@ function retrieve(q){
   return cs.map(o=>{const tf={};o.w.forEach(w=>tf[w]=(tf[w]||0)+1);let sc=0;qt.forEach(w=>{if(tf[w])sc+=(1+Math.log(tf[w]))*Math.log(1+N/df[w])});return {c:o.c,s:sc/Math.sqrt(o.w.length||1)}})
     .filter(r=>r.s>0).sort((a,b)=>b.s-a.s).slice(0,3).map(r=>r.c);
 }
+const CASW=/\b(gw|gue|gua|lu|lo|loe|elu|nggak|ngga|gak|gk|banget|bgt|dong|deh|sih|nih|tuh|aja|doang|udah|udh|dah|gimana|gmn|gmana|knp|yg|dgn|pake|bikin|ngapain|nanya|ngoding|mager|santuy|anjir|njir|anjay|bro|sis|wkwk\w*|haha\w*|hehe\w*|cuy|woi|emang|emg|kayak|kek|pengen|makasih|thx)\b/gi;
+const FORW=/\b(saya|anda|mohon|bagaimana|apakah|silakan|terima kasih|mengapa|dapatkah|berikut)\b/gi;
+const casScore=t=>(t.match(CASW)||[]).length-2*(t.match(FORW)||[]).length;
+function styleNote(c){
+  const us=c.msgs.filter(m=>m.r==='u'&&typeof m.t==='string').slice(-3).map(m=>m.t),last=us[us.length-1]||'';
+  if(!(casScore(last)>=1||us.reduce((a,t)=>a+casScore(t),0)>=2))return '';
+  const all=us.join(' ');
+  let n='Pengguna memakai bahasa Indonesia santai (tidak baku). Balas dengan gaya yang sama: santai, akrab, dan natural seperti ngobrol, boleh pakai kata seperti "nggak", "banget", "dong". Jangan kaku atau baku, tapi tetap benar dan jelas.';
+  if(/\b(gw|gue|gua|lu|lo|loe|elu)\b/i.test(all))n+=' Pakai "gue" untuk dirimu dan "lo" untuk pengguna.';
+  else if(/\b(aku|kamu|kmu)\b/i.test(all))n+=' Pakai "aku" dan "kamu".';
+  if(/\b(anjir|njir|anjay|wkwk\w*|cuy|woi)\b/i.test(all))n+=' Boleh sedikit gaul.';
+  return '\n\n[Catatan gaya untuk jawabanmu: '+n+']';
+}
 function buildMsgs(c){
   let o=apiHist(c);const ins=personaText(),last=o[o.length-1];
   if(last&&last.role==='user'){const h=retrieve(last.content);if(h.length)last.content='Konteks dari pengetahuan Nusa (pakai jika relevan, abaikan jika tidak):\n'+h.map(x=>'['+x.t+'] '+x.x).join('\n---\n')+'\n\nPertanyaan: '+last.content}
+  if(persona.mirror&&persona.style!=='formal'&&last&&last.role==='user')last.content+=styleNote(c);
   if(ins){while(o.length&&o[0].role==='assistant')o.shift();o=[{role:'user',content:'Instruksi permanen untuk kamu. Ikuti dalam semua jawaban:\n'+ins+'\n\nBalas hanya dengan kata "Siap" jika paham.'},{role:'assistant',content:'Siap.'}].concat(o)}
   return o;
 }
