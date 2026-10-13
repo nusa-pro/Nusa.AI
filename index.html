@@ -460,7 +460,7 @@ function add(role,text){
 }
 function esc(t){return t.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 /* batas chat tamu (belum login): GUEST_LIMIT pesan per hari */
-const GUEST_LIMIT=15;
+const GUEST_LIMIT=7;
 function guestKey(){return new Date().toLocaleDateString('en-CA')}
 function guestUsed(){try{const d=JSON.parse(localStorage.getItem('nusa_guest')||'null');return d&&d.d===guestKey()?d.n:0}catch(e){return 0}}
 function guestBump(){try{localStorage.setItem('nusa_guest',JSON.stringify({d:guestKey(),n:guestUsed()+1}))}catch(e){}}
