@@ -728,24 +728,48 @@ dd.querySelectorAll('button').forEach(b=>b.onclick=()=>act(b.dataset.a));
 let webOn=false,rec=null,chunks=[],t0=0,tk=0;
 const mic=$('#mic'),tmEl=$('#tm');
 const fmt=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
-/* input suara: ucapan diubah jadi teks agar AI bisa membacanya */
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-let sr=null,srOn=false,srBase='';
-function srRun(){
-  const r=new SR();sr=r;r.lang='id-ID';r.interimResults=true;
-  r.onresult=e=>{let t='';for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;inp.value=srBase+t;grow();send.disabled=!inp.value.trim()};
-  r.onerror=e=>{const m={'not-allowed':'Izinkan akses mikrofon.','service-not-allowed':'Izinkan akses mikrofon.','network':'Input suara butuh internet.','audio-capture':'Mikrofon tidak ditemukan.'}[e.error];if(m){toast(m);srOn=false}};
-  r.onend=()=>{srBase=inp.value?inp.value.replace(/\s*$/,' '):'';if(srOn){try{srRun();return}catch(_){}}srStop()};
-  r.start();
+/* input suara: rekam, lalu diubah jadi teks oleh Whisper (Cloudflare) */
+async function toWav(blob){
+  const AC=window.AudioContext||window.webkitAudioContext,ac=new AC();
+  const buf=await ac.decodeAudioData(await blob.arrayBuffer());ac.close();
+  const oc=new OfflineAudioContext(1,Math.max(1,Math.ceil(buf.duration*16000)),16000),sr=oc.createBufferSource();
+  sr.buffer=buf;sr.connect(oc.destination);sr.start();
+  const d=(await oc.startRendering()).getChannelData(0),w=new DataView(new ArrayBuffer(44+d.length*2));
+  const ws=(o,t)=>{for(let i=0;i<t.length;i++)w.setUint8(o+i,t.charCodeAt(i))};
+  ws(0,'RIFF');w.setUint32(4,36+d.length*2,true);ws(8,'WAVE');ws(12,'fmt ');w.setUint32(16,16,true);w.setUint16(20,1,true);w.setUint16(22,1,true);w.setUint32(24,16000,true);w.setUint32(28,32000,true);w.setUint16(32,2,true);w.setUint16(34,16,true);ws(36,'data');w.setUint32(40,d.length*2,true);
+  for(let i=0;i<d.length;i++){const x=Math.max(-1,Math.min(1,d[i]));w.setInt16(44+i*2,x<0?x*32768:x*32767,true)}
+  return w.buffer;
 }
-function srStop(){srOn=false;sr=null;clearInterval(tk);mic.classList.remove('rec');tmEl.textContent=''}
-mic.onclick=()=>{
-  if(srOn){srOn=false;try{sr.stop()}catch(_){}return}
-  if(!SR){toast('Browser ini belum mendukung input suara. Coba Chrome.');return}
-  srOn=true;srBase=inp.value?inp.value.replace(/\s*$/,' '):'';t0=Date.now();
-  try{srRun()}catch(_){srStop();return}
-  mic.classList.add('rec');tmEl.textContent='0:00';
-  tk=setInterval(()=>{tmEl.textContent=fmt(Math.round((Date.now()-t0)/1000))},500);
+function b64(buf){let s='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)}
+async function transcribe(blob){
+  const r=await fetch(IMG_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'stt',audio:b64(await toWav(blob)),language:'id'})});
+  const d=await r.json().catch(()=>({}));
+  if(typeof d.text!=='string')throw new Error(d.error==='prompt kosong'?'Worker belum diperbarui':(d.error||'HTTP '+r.status));
+  return d.text.trim();
+}
+mic.onclick=async()=>{
+  if(rec){rec.stop();return}
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({audio:true});
+    rec=new MediaRecorder(st);chunks=[];t0=Date.now();
+    rec.ondataavailable=e=>chunks.push(e.data);
+    rec.onstop=async()=>{
+      clearInterval(tk);clearTimeout(rec.lim);st.getTracks().forEach(x=>x.stop());
+      const sec=Math.round((Date.now()-t0)/1000),blob=new Blob(chunks,{type:rec.mimeType});
+      rec=null;mic.classList.remove('rec');tmEl.textContent='';
+      if(sec<1)return;
+      inp.placeholder='Mengubah suara jadi teks…';mic.disabled=true;
+      try{
+        const t=await transcribe(blob);
+        if(!t)toast('Suara tidak terdengar');
+        else{inp.value=(inp.value?inp.value.replace(/\s*$/,' '):'')+t;grow();send.disabled=false}
+      }catch(e){toast('Gagal mengubah suara: '+e.message)}
+      finally{inp.placeholder=MODES[view].ph;mic.disabled=false}
+    };
+    rec.start();mic.classList.add('rec');tmEl.textContent='0:00';
+    rec.lim=setTimeout(()=>{if(rec)rec.stop()},60000);
+    tk=setInterval(()=>{tmEl.textContent=fmt(Math.round((Date.now()-t0)/1000))},500);
+  }catch(_){toast('Mikrofon tidak bisa diakses. Izinkan akses mikrofon.')}
 };
 const hm=document.createElement('div');hm.className='hm';hm.id='hm';document.body.appendChild(hm);
 [['rename','Ubah nama'],['pin','Sematkan'],['share','Bagikan'],['del','Hapus']].forEach(([a,l])=>{
