@@ -576,6 +576,7 @@ let gtc=null;
 $('#lg').onclick=()=>{
   const s=$('#lmsg');
   if(!(window.google&&google.accounts&&google.accounts.oauth2)){warn('Layanan Google belum termuat. Cek koneksi lalu coba lagi.');return}
+  const tokenFlow=()=>{
   if(!gtc){gtc=google.accounts.oauth2.initTokenClient({client_id:GOOGLE_CLIENT_ID,scope:'openid email profile',
     callback:async r=>{
       if(r.error||!r.access_token){warn('Login Google dibatalkan atau gagal.');return}
@@ -585,6 +586,28 @@ $('#lg').onclick=()=>{
     },
     error_callback:()=>{warn('Login Google dibatalkan atau gagal.')}});}
   gtc.requestAccessToken();
+  };
+  /* utama: jendela popup pemilih akun Google (One Tap / FedCM), tanpa pindah halaman */
+  if(google.accounts.id){
+    try{
+      if(!window._gidInit){
+        google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,use_fedcm_for_prompt:true,auto_select:false,cancel_on_tap_outside:false,
+          callback:r=>{
+            try{
+              const b=r.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+              const u=JSON.parse(decodeURIComponent(escape(atob(b))));
+              setUser((u.name||u.given_name||u.email||'Akun Google'),{email:u.email,picture:u.picture});
+            }catch(e){warn('Gagal membaca profil Google.')}
+          }});
+        window._gidInit=true;
+      }
+      google.accounts.id.prompt(n=>{
+        if((n.isNotDisplayed&&n.isNotDisplayed())||(n.isSkippedMoment&&n.isSkippedMoment())){tokenFlow()}
+      });
+      return;
+    }catch(e){}
+  }
+  tokenFlow();
 };
 let otpMail=null,otpTimer=null;
 function setReg(r){reg=r;otpMail=null;
