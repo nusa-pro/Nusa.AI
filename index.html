@@ -102,17 +102,6 @@ textarea{width:100%;border:0;background:transparent;color:var(--ink);font:inheri
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s}
 .opt[aria-checked="true"] .sw{background:#fff}
 .opt[aria-checked="true"] .sw::after{transform:translateX(18px);background:#0A0A0A}
-.tg2{color:#7EE787}
-body[data-view="code"] .scroll,body[data-view="code"] textarea{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px}
-body[data-view="code"] .col{max-width:none}
-body[data-view="code"] .msg{margin:3px 0}
-body[data-view="code"] .msg.u{justify-content:flex-start}
-body[data-view="code"] .bub{max-width:100%;background:none;border:0;border-radius:0;padding:2px 0;color:#D6D6DC}
-body[data-view="code"] .u .bub{color:#fff}
-body[data-view="code"] .u .bub::before{content:"$ ";color:#7EE787}
-body[data-view="code"] .hero{padding:3vh 0 10px}
-body[data-view="code"] .hero h1{font:600 15px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:0;color:#7EE787}
-body[data-view="code"] .hero p{font-size:14px}
 .send{margin-left:auto;background:var(--accent);color:#0A0A0A;border:0;border-radius:12px;width:40px;height:36px;font-weight:700}
 .send:disabled{opacity:.4;cursor:default}
 .note{text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
@@ -234,8 +223,6 @@ button:active{opacity:.65}
 .hero{margin:auto 0;padding:0 8px 6vh;display:flex;flex-direction:column;align-items:center;text-align:center}
 .hero p{margin:0;max-width:30ch}
 .hl{width:60px;height:60px;border-radius:17px;background:#F2F2F5;color:#0A0A0A;display:grid;place-items:center;font:700 34px/1 "Bricolage Grotesque",system-ui,sans-serif;margin-bottom:20px}
-body[data-view="code"] .hero{align-items:flex-start;text-align:left;margin:0}
-body[data-view="code"] .hl{display:none}
 </style>
 </head>
 <body>
@@ -251,7 +238,7 @@ setTimeout(end,rm?900:6000);})();
 <div class="app">
   <aside class="side" id="side" aria-label="Riwayat obrolan">
     <div class="brand"><span class="logo" aria-hidden="true">N</span>Nusa</div>
-    <nav class="nav" aria-label="Fitur"><button data-v="chat" class="on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v10H10l-4 4v-4H5z"/></svg>Chat</button><button data-v="code"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l5 5-5 5M12 18h7"/></svg>Code</button><button data-v="project"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h6l2 2h8v10H4z"/></svg>Project</button></nav>
+    <nav class="nav" aria-label="Fitur"><button data-v="chat" class="on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v10H10l-4 4v-4H5z"/></svg>Chat</button><button data-v="project"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h6l2 2h8v10H4z"/></svg>Project</button></nav>
     <button class="new" id="new">+ Obrolan baru</button>
     <div class="hist" id="hist"><small>Hari ini</small></div>
     <div class="foot"><button class="login" id="loginb">Masuk atau daftar</button>
@@ -332,7 +319,7 @@ let busy=false,n=0;
 let cur=null,convs=[];
 const LSK='nusa_convs_v1';
 let sw=0;function saveConvs(){try{localStorage.setItem(LSK,JSON.stringify(convs.slice(0,60)))}catch(e){if(!sw++)toast('Penyimpanan browser mati, obrolan tidak bisa disimpan')}}
-function loadConvs(){try{const a=JSON.parse(localStorage.getItem(LSK)||'[]');convs=Array.isArray(a)?a.filter(c=>c&&c.id&&typeof c.title==='string'&&Array.isArray(c.msgs)&&(c.view==='chat'||c.view==='code')):[]}catch(e){convs=[]}}
+function loadConvs(){try{const a=JSON.parse(localStorage.getItem(LSK)||'[]');convs=Array.isArray(a)?a.filter(c=>c&&c.id&&typeof c.title==='string'&&Array.isArray(c.msgs)&&c.view==='chat'):[]}catch(e){convs=[]}}
 function apiHist(c){const o=[];c.msgs.forEach((m,i)=>{if(m.err)return;const nx=c.msgs[i+1];if(m.r==='u'&&nx&&nx.err)return;o.push({role:m.r==='u'?'user':'assistant',content:m.t})});return o.slice(-20)}
 const ACTS='<div class="acts"><button>Salin</button><button>Ulangi</button><button>Suka</button></div>';
 function renderHist(){
@@ -349,7 +336,7 @@ function openConv(id){
   cur=c;busy=false;n=c.msgs.filter(m=>m.r==='u').length;
   view=c.view;last=view;document.body.dataset.view=view;
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
-  $('#model').value=view==='code'?'Nusa Kode':'Nusa Cepat';
+  $('#model').value='Nusa Cepat';
   inp.placeholder=MODES[view].ph;convTitle[view]=c.title;$('#title').textContent=c.title;
   chat.innerHTML='';
   c.msgs.forEach(m=>{
@@ -360,18 +347,11 @@ function openConv(id){
   });
   renderHist();renderPop();grow();close();sc.scrollTop=sc.scrollHeight;
 }
-const codeStarters=[
- ['Tulis fungsi','Buat fungsi Python untuk validasi NIK'],
- ['Perbaiki error','Kenapa muncul error undefined is not a function di JavaScript?'],
- ['Jelaskan kode','Jelaskan async/await dengan contoh sederhana'],
- ['Buat tampilan','Buat tombol login dengan HTML dan CSS']
-];
 const MODES={
- chat:{h:['Ngobrolin apa nih?','Gas, mau tanya apa?','Sini, lempar aja','Lagi ada ide apa?','Nusa udah standby, ayo'],p:'Nusa.ai',ph:'Tanya apa saja ke Nusa…',t:'Obrolan baru'},
- code:{h:'Nusa Terminal v0.2',p:'Ketik help untuk daftar perintah. Contoh: echo "print(1+1)" > a.py lalu python a.py',ph:'$ ketik perintah…',t:'Sesi terminal'}
+ chat:{h:['Ngobrolin apa nih?','Gas, mau tanya apa?','Sini, lempar aja','Lagi ada ide apa?','Nusa udah standby, ayo'],p:'Nusa.ai',ph:'Tanya apa saja ke Nusa…',t:'Obrolan baru'}
 };
 let view='chat';
-const convTitle={chat:'Obrolan baru',code:'Sesi terminal'};
+const convTitle={chat:'Obrolan baru'};
 function hero(){
   const m=MODES[view];
   chat.innerHTML='<div class="hero"><div class="hl">N</div><h1></h1><p></p></div>';
@@ -403,16 +383,8 @@ function ask(){
   };
   const done=(html,copy)=>{b.innerHTML=html;fin(copy)};
   
-  if(view==='code'&&(LINK?!/^ai\s/.test(t):LOCAL.has(t.split(/\s+/)[0]))){
-    if(/^connect\s/.test(t)){c.msgs[c.msgs.length-1].t=t.replace(/\S+$/,'••••');saveConvs()}
-    runLocal(t).then(o=>{
-      if(o===CLR){chat.innerHTML='';busy=false;send.disabled=!inp.value.trim();return}
-      o=o||'(tanpa output)';c.msgs.push({r:'b',t:o});c.ts=Date.now();saveConvs();done(esc(o),o)
-    }).catch(e=>done('Error: '+esc(String(e.message||e)),''));
-    return;
-  }
   if(!PROXY_URL){
-    setTimeout(()=>done((view==='code'?'<span class="tg2">nusa</span> mode demo, belum terhubung ke model':'Mode demo: Nusa belum terhubung ke model. Pesanmu: <b>'+esc(t)+'</b>')+'<pre>model: '+esc(model)+'\nfitur aktif: '+(tg.join(', ')||'-')+'</pre>',t),900);
+    setTimeout(()=>done(('Mode demo: Nusa belum terhubung ke model. Pesanmu: <b>'+esc(t)+'</b>')+'<pre>model: '+esc(model)+'\nfitur aktif: '+(tg.join(', ')||'-')+'</pre>',t),900);
     return;
   }
   
@@ -424,7 +396,6 @@ function ask(){
     .finally(()=>clearTimeout(to));
 }
 const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
-const hist={chat:[],code:[]};
 function typeReply(b,text,fin){
   if(matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
   const rate=Math.max(75,text.length/8); // karakter per detik; jawaban panjang dipercepat agar maks ~8 detik
@@ -471,7 +442,7 @@ function renderPop(){
     '<div class="sh">Contoh pertanyaan</div>';
   pop.querySelectorAll('.tile').forEach(t=>t.onclick=()=>$('#'+t.dataset.i).click());
   $('#webopt').onclick=function(){webOn=!webOn;this.setAttribute('aria-checked',String(webOn))};
-  (view==='code'?codeStarters:starters).forEach(([a,b])=>{const x=document.createElement('button');x.innerHTML='<b></b><span></span>';x.firstChild.textContent=a;x.lastChild.textContent=b;x.onclick=()=>{closePop();inp.value=b;grow();ask()};pop.appendChild(x)});
+  starters.forEach(([a,b])=>{const x=document.createElement('button');x.innerHTML='<b></b><span></span>';x.firstChild.textContent=a;x.lastChild.textContent=b;x.onclick=()=>{closePop();inp.value=b;grow();ask()};pop.appendChild(x)});
 }
 plus.onclick=e=>{e.stopPropagation();const o=pop.classList.toggle('show');$('#psc').classList.toggle('show',o);plus.setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{if(!e.target.closest('#pop'))closePop()});
@@ -480,7 +451,7 @@ function setView(v){
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   if(v==='project'){$('#title').textContent='Project'}
   else{
-    if(v!==last){n=0;busy=false;hero();$('#model').value=v==='code'?'Nusa Kode':'Nusa Cepat'}
+    if(v!==last){n=0;busy=false;hero();$('#model').value='Nusa Cepat'}
     last=v;$('#title').textContent=convTitle[v];grow();renderPop();
   }
   close();
@@ -651,109 +622,11 @@ mic.onclick=async()=>{
     tk=setInterval(()=>{tmEl.textContent=fmt(Math.round((Date.now()-t0)/1000))},500);
   }catch(_){toast('Mikrofon tidak bisa diakses. Izinkan akses mikrofon.')}
 };
-/* terminal lokal: simulasi + python (Pyodide) + js (Worker) */
-const LOCAL=new Set(['help','clear','pwd','ls','cd','mkdir','touch','cat','echo','rm','date','whoami','uname','python','python3','node','sudo','apt','pip','pip3','npm','connect','disconnect']);
-const CLR='\u0000clear';
-let cwd='/home/nusa',FS={'/':null,'/home':null,'/home/nusa':null};
-try{const o=JSON.parse(localStorage.getItem('nusa_fs_v1')||'null');if(o&&typeof o==='object'&&'/' in o)FS=o}catch(e){}
-const saveFS=()=>{try{localStorage.setItem('nusa_fs_v1',JSON.stringify(FS))}catch(e){}};
-const vp=p=>{const o=[];((p[0]==='/'?'':(cwd==='/'?'':cwd)+'/')+p).split('/').forEach(x=>{if(!x||x==='.')return;x==='..'?o.pop():o.push(x)});return '/'+o.join('/')};
-const isDir=p=>p in FS&&FS[p]===null;
-const par=p=>p.replace(/\/[^\/]*$/,'')||'/';
-let pyP=null;
-function loadPy(){
-  if(pyP)return pyP;
-  pyP=new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
-    s.onload=()=>loadPyodide().then(ok,no);s.onerror=()=>no(new Error('Gagal memuat Python. Cek koneksi.'));document.head.appendChild(s)}).catch(e=>{pyP=null;throw e});
-  return pyP}
-async function runPy(code){
-  const py=await loadPy();let out='';
-  py.setStdout({batched:x=>out+=x+'\n'});py.setStderr({batched:x=>out+=x+'\n'});
-  try{await py.runPythonAsync(code)}catch(e){out+=String(e.message||e).trim().split('\n').slice(-5).join('\n')+'\n'}
-  return out.replace(/\n$/,'')}
-function runJs(code){return new Promise(ok=>{
-  const w=new Worker(URL.createObjectURL(new Blob(['('+function(){onmessage=e=>{const o=[];const f=(...a)=>o.push(a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '));self.console={log:f,error:f,warn:f,info:f};try{(0,eval)(e.data)}catch(x){o.push(String(x))}postMessage(o.join('\n'))}}+')()'],{type:'text/javascript'})));
-  const tm=setTimeout(()=>{w.terminate();ok('Waktu habis (5 detik)')},5000);
-  w.onmessage=e=>{clearTimeout(tm);w.terminate();ok(e.data)};
-  w.onerror=e=>{clearTimeout(tm);w.terminate();ok(String(e.message||'Error'))};
-  w.postMessage(code)})}
-async function cmd(c,a){
-  const fl=a.filter(x=>x[0]==='-'),ar=a.filter(x=>x[0]!=='-');
-  switch(c){
-  case 'help':return 'Nusa Terminal v0.2\nPerintah: help, clear, pwd, ls, cd, mkdir [-p], touch, cat, echo [-e], rm [-r], date, whoami, uname\nTulis file: echo "teks" > file  atau  >> file\nJalankan kode: python file.py | python -c "print(1)" | node file.js | node -e "console.log(1)"\nTermux: connect http://127.0.0.1:8765 TOKEN (shell Linux asli)\nPerintah lain dikirim ke Nusa (AI). Terminal ini jalan di browser, bukan Linux asli.';
-  case 'clear':return CLR;
-  case 'pwd':return cwd;
-  case 'whoami':return 'nusa';
-  case 'date':return new Date().toString();
-  case 'uname':return 'NusaBrowser';
-  case 'echo':{const e=a[0]==='-e',t=(e?a.slice(1):a).join(' ');return e?t.replace(/\\n/g,'\n'):t}
-  case 'cd':{const p=ar[0]?vp(ar[0]):'/home/nusa';if(!isDir(p))return 'cd: '+(ar[0]||p)+': No such file or directory';cwd=p;return ''}
-  case 'ls':{const p=vp(ar[0]||'.');if(!(p in FS))return 'ls: '+ar[0]+': No such file or directory';if(!isDir(p))return ar[0];
-    return Object.keys(FS).filter(k=>k!=='/'&&par(k)===p).map(k=>k.slice(p==='/'?1:p.length+1)+(FS[k]===null?'/':'')).sort().join('  ')}
-  case 'mkdir':{if(!ar.length)return 'mkdir: nama folder kosong';const r=[];
-    ar.forEach(x=>{const p=vp(x);if(p in FS){if(!fl.includes('-p'))r.push('mkdir: '+x+': File exists');return}
-      if(!isDir(par(p))){if(!fl.includes('-p')){r.push('mkdir: '+x+': No such file or directory');return}
-        let q='';p.split('/').filter(Boolean).forEach(y=>{q+='/'+y;if(!(q in FS))FS[q]=null})}else FS[p]=null});
-    saveFS();return r.join('\n')}
-  case 'touch':{const r=[];ar.forEach(x=>{const p=vp(x);if(p in FS)return;if(!isDir(par(p)))r.push('touch: '+x+': No such file or directory');else FS[p]=''});saveFS();return r.join('\n')}
-  case 'cat':{if(!ar.length)return 'cat: sebutkan nama file';
-    return ar.map(x=>{const p=vp(x);return !(p in FS)?'cat: '+x+': No such file or directory':isDir(p)?'cat: '+x+': Is a directory':FS[p].replace(/\n$/,'')}).join('\n')}
-  case 'rm':{const rf=fl.some(x=>/[rR]/.test(x)),ff=fl.some(x=>/f/.test(x)),r=[];
-    ar.forEach(x=>{const p=vp(x);if(p==='/'){r.push('rm: tidak boleh menghapus /');return}
-      if(!(p in FS)){if(!ff)r.push('rm: '+x+': No such file or directory');return}
-      if(isDir(p)&&!rf){r.push('rm: '+x+': Is a directory (pakai -r)');return}
-      Object.keys(FS).forEach(k=>{if(k===p||k.startsWith(p+'/'))delete FS[k]})});
-    while(!isDir(cwd))cwd=par(cwd);saveFS();return r.join('\n')}
-  case 'python':case 'python3':{let code;
-    if(a[0]==='--version')return 'Python 3.12 (Pyodide)';
-    if(a[0]==='-c')code=a.slice(1).join(' ');
-    else if(ar[0]){const p=vp(ar[0]);if(!(p in FS)||isDir(p))return 'python: tidak bisa membuka file '+ar[0];code=FS[p]}
-    else return 'Pakai: python file.py  atau  python -c "print(1+1)"';
-    return runPy(code)}
-  case 'node':{let code;
-    if(a[0]==='-e')code=a.slice(1).join(' ');
-    else if(ar[0]){const p=vp(ar[0]);if(!(p in FS)||isDir(p))return 'node: tidak bisa membuka file '+ar[0];code=FS[p]}
-    else return 'Pakai: node file.js  atau  node -e "console.log(1+1)"';
-    return runJs(code)}
-  default:return c+': tidak tersedia. Terminal ini berjalan di browser, bukan Linux asli.'}
-}
-let LINK=null;try{const o=JSON.parse(localStorage.getItem('nusa_link')||'null');if(o&&o.u&&o.t)LINK={u:o.u,t:o.t}}catch(e){}
-async function linkConnect(line){
-  const a=line.trim().split(/\s+/),u=(a[1]||'').replace(/\/$/,''),t=a[2]||'';
-  if(!/^https?:\/\//.test(u)||!t)return 'Pakai: connect http://127.0.0.1:8765 TOKEN';
-  try{const r=await fetch(u,{headers:{'Authorization':'Bearer '+t}});
-    if(r.status===401)return 'Token salah.';
-    const d=await r.json();LINK={u:u,t:t};
-    try{localStorage.setItem('nusa_link',JSON.stringify(LINK))}catch(e){}
-    return 'Tersambung ke Termux ('+d.cwd+').\nSemua perintah sekarang jalan di Termux. Awali dengan "ai " untuk bertanya ke Nusa. Ketik disconnect untuk keluar.'}
-  catch(e){return 'Tidak bisa terhubung. Pastikan "python nusa-server.py" masih jalan di Termux.'}
-}
-async function remote(line){
-  try{const r=await fetch(LINK.u,{method:'POST',headers:{'Authorization':'Bearer '+LINK.t,'Content-Type':'application/json'},body:JSON.stringify({cmd:line})});
-    if(r.status===401)return 'Token salah. Ketik connect lagi dengan token terbaru.';
-    return (await r.json()).out||''}
-  catch(e){return 'Gagal terhubung ke Termux. Pastikan "python nusa-server.py" masih jalan, atau ketik disconnect untuk memakai terminal browser.'}
-}
-async function runLocal(line){
-  const w=line.split(/\s+/)[0];
-  if(w==='connect')return linkConnect(line);
-  if(w==='disconnect'){LINK=null;try{localStorage.removeItem('nusa_link')}catch(e){}return 'Terputus. Kembali ke terminal browser.'}
-  if(LINK&&w!=='clear'&&w!=='help')return remote(line);
-  const m=line.match(/"[^"]*"|'[^']*'|\S+/g)||[];
-  const ri=m.findIndex(x=>x==='>'||x==='>>'),app=ri>=0&&m[ri]==='>>',tg=ri>=0?m[ri+1]:null;
-  if(ri>=0&&!tg)return 'bash: sintaks error dekat >';
-  const tk=(ri>=0?m.slice(0,ri):m).map(x=>/^(".*"|'.*')$/.test(x)?x.slice(1,-1):x);
-  const o=await cmd(tk[0],tk.slice(1));
-  if(o===CLR||!tg)return o;
-  const t=tg.replace(/^["']|["']$/g,''),p=vp(t);
-  if(isDir(p))return 'bash: '+t+': Is a directory';
-  if(!isDir(par(p)))return 'bash: '+t+': No such file or directory';
-  FS[p]=(app?(FS[p]||''):'')+o+'\n';saveFS();return '';
-}
 $('#hist').addEventListener('click',e=>{const b=e.target.closest('button[data-id]');if(b)openConv(b.dataset.id)});
 addEventListener('pagehide',saveConvs);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)saveConvs()});
 try{localStorage.setItem('nusa_t','1');localStorage.removeItem('nusa_t')}catch(e){setTimeout(()=>toast('Penyimpanan browser mati, obrolan tidak bisa disimpan'),1500)}
+try{['nusa_link','nusa_fs_v1'].forEach(k=>localStorage.removeItem(k))}catch(e){}
 loadConvs();hero();renderPop();
 </script>
 </body>
