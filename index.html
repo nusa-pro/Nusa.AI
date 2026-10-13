@@ -459,12 +459,19 @@ function add(role,text){
   m.appendChild(b);chat.appendChild(m);sc.scrollTop=sc.scrollHeight;return b;
 }
 function esc(t){return t.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+/* batas chat tamu (belum login): GUEST_LIMIT pesan per hari */
+const GUEST_LIMIT=15;
+function guestKey(){return new Date().toLocaleDateString('en-CA')}
+function guestUsed(){try{const d=JSON.parse(localStorage.getItem('nusa_guest')||'null');return d&&d.d===guestKey()?d.n:0}catch(e){return 0}}
+function guestBump(){try{localStorage.setItem('nusa_guest',JSON.stringify({d:guestKey(),n:guestUsed()+1}))}catch(e){}}
 function ask(){
-  const t0=inp.value.trim();if((!t0&&!att.length)||busy)return;const t=t0||('Lampiran: '+att.map(a=>a.n).join(', '));
+  const t0=inp.value.trim();if((!t0&&!att.length)||busy)return;
+  if(!user&&guestUsed()>=GUEST_LIMIT){lm.classList.add('show');toast('Batas chat tamu hari ini habis. Masuk dulu biar bebas ngobrol');return}const t=t0||('Lampiran: '+att.map(a=>a.n).join(', '));
   const shown=t0&&att.length?t+'\nLampiran: '+att.map(a=>a.n).join(', '):t;
   if(!cur){chat.innerHTML='';const ti=t.slice(0,40);convTitle[view]=ti;$('#title').textContent=ti;
     cur={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),view:view,title:ti,msgs:[],pin:false,ts:Date.now()};convs.unshift(cur);renderHist()}
   const c=cur;c.msgs.push({r:'u',t:shown});c.ts=Date.now();saveConvs();
+  if(!user){guestBump();const sisa=GUEST_LIMIT-guestUsed();if(sisa<=2)setTimeout(()=>toast(sisa>0?'Sisa '+sisa+' chat gratis. Masuk untuk tanpa batas':'Ini chat gratis terakhirmu. Masuk untuk tanpa batas'),300)}
   n++;add('u',shown);att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
   const b=add('b','<span class="think"><span class="atom" aria-label="Memuat"><span class="atom-in"><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="core"></span></span></span><b>Nusa started..</b></span>');
   const model=$('#model').value;
@@ -513,7 +520,7 @@ async function proxyCall(body,signal){
     }catch(e){if(e.name==='AbortError')throw e;last=e;if(i===2)break}
     await new Promise(res=>setTimeout(res,1500*(i+1)));
   }
-  throw new Error('Server AI sedang sibuk. Coba lagi sebentar lagi.');
+  throw new Error(last&&last.message&&!/^HTTP (429|5\d\d)$/.test(last.message)?last.message:'Server AI sedang sibuk. Coba lagi sebentar lagi.');
 }
 const IMG_URL='https://nusa-picture.pinnshiki.workers.dev/'; // Worker khusus gambar
 const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
