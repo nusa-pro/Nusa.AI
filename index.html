@@ -582,7 +582,7 @@ function setReg(r){reg=r;otpMail=null;
   $('#lt').textContent=r?'Daftar akun baru':'Masuk ke Nusa';
   $('#lgo').textContent=r?'Daftar':'Masuk';
   $('#le').placeholder=r?'Alamat Gmail':'Email';
-  $('#lotpw').style.display=r?'flex':'none';
+  $('#lotpw').style.display='none';
   $('#lp2').style.display=r?'':'none';
   $('#lp').autocomplete=r?'new-password':'current-password';
   $('#lreg').textContent=r?'Sudah punya akun? Masuk':'Belum punya akun? Daftar dengan Gmail';
@@ -609,18 +609,15 @@ $('#lgo').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),p=$('#lp
     if(reg){
       if(!/@gmail\.com$/i.test(e)){warn('Pendaftaran memakai alamat Gmail (@gmail.com).');return}
       if(p!==$('#lp2').value){warn('Konfirmasi kata sandi tidak sama.');return}
-      if(otpMail!==e){warn('Tekan "Kirim kode" dulu untuk dapat kode OTP.');return}
-      const tok=$('#lo').value.trim();
-      if(!/^\d{6}$/.test(tok)){warn('Masukkan 6 digit kode OTP dari email.');return}
-      /* akun baru bisa terdaftar sebagai 'signup', akun lama 'email'/'magiclink' - coba semuanya */
-      let v=null;
-      for(const ty of ['email','signup','magiclink']){
-        v=await sb.auth.verifyOtp({email:e,token:tok,type:ty});
-        if(!v.error&&v.data&&v.data.session)break;
+      /* daftar langsung dengan email + kata sandi, tanpa OTP */
+      const su=await sb.auth.signUp({email:e,password:p});
+      if(su.error){
+        warn(/already|registered/i.test(su.error.message)?'Email sudah terdaftar. Silakan masuk.':'Gagal daftar: '+su.error.message,6000);return}
+      if(su.data&&su.data.user&&Array.isArray(su.data.user.identities)&&su.data.user.identities.length===0){warn('Email sudah terdaftar. Silakan masuk.');return}
+      if(!(su.data&&su.data.session)){
+        const si=await sb.auth.signInWithPassword({email:e,password:p});
+        if(si.error){warn('Akun dibuat, tapi perlu konfirmasi email dulu. Matikan "Confirm email" di Supabase atau cek inbox.',7000);return}
       }
-      if(v.error||!(v.data&&v.data.session)){warn('Kode OTP ditolak: '+((v.error&&v.error.message)||'sesi tidak terbentuk')+'. Pakai kode terbaru dari email terakhir.',7000);return}
-      const u=await sb.auth.updateUser({password:p});
-      if(u.error){warn('Gagal menyimpan kata sandi: '+u.error.message,6000);return}
       otpMail=null;
       setUser(e.split('@')[0],{email:e});
     }else{
