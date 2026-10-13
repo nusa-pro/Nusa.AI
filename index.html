@@ -591,7 +591,8 @@ document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>setView(b.data
 const lm=$('#lm'),loginb=$('#loginb');let user=null;
 loginb.onclick=()=>{lm.classList.add('show');$('#le').focus()};
 const HASH0=location.hash;
-const sb=supabase.createClient('https://oxnbyecopebrooescgnu.supabase.co','sb_publishable_ypgFv-AupzEMPZE46FR9RA_gtm3WYrs');
+// Google Client ID (dipasang di dashboard Supabase, bukan di sini): 1006463500839-v6sis9bn13kacpceegc0hou3h7pn7ilp.apps.googleusercontent.com
+const sb=supabase.createClient('https://eoprpcfvwbvuuytythae.supabase.co','sb_publishable_hMwHmYhYcHaEwgyvtJpCIA_4Rd5GOPS');
 $('#pout').onclick=()=>dialog('Keluar dari akun?','Kamu perlu masuk lagi untuk memakai akunmu.',null,'Keluar',()=>{user=null;try{sb.auth.signOut()}catch(e){}try{localStorage.removeItem('nusa_user')}catch(e){}$('#prof').style.display='none';loginb.style.display='';toast('Kamu sudah keluar')},true);
 $('#lx').onclick=()=>lm.classList.remove('show');
 let reg=false;
