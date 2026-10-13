@@ -347,6 +347,14 @@ setTimeout(end,rm?900:6000);})();
       <button class="alt" id="aclose">Tutup</button>
     </div></div>
     <div class="modal" id="pvm" style="padding:0"><div class="pvc"><div class="pvh"><b id="pvt"></b><button class="alt" id="pvc">Tutup</button></div><iframe id="pvf" sandbox="allow-scripts allow-forms" title="Pratinjau"></iframe></div></div>
+    <div class="modal" id="pwm" role="dialog" aria-modal="true" aria-labelledby="pwt"><div class="card">
+      <h2 id="pwt">Buat kata sandi</h2>
+      <p id="pwe">Email kamu sudah terverifikasi.</p>
+      <input id="np" type="password" placeholder="Kata sandi baru (minimal 6 karakter)" autocomplete="new-password">
+      <input id="np2" type="password" placeholder="Konfirmasi kata sandi" autocomplete="new-password">
+      <button class="go" id="npgo">Simpan dan masuk</button>
+      <button class="alt" id="npx">Lewati dulu</button>
+    </div></div>
     <div class="toast" id="toast"></div>
     <div class="warn" id="warn" role="alert"></div>
     <div class="modal" id="lm" role="dialog" aria-modal="true" aria-labelledby="lt"><div class="card">
@@ -364,6 +372,7 @@ setTimeout(end,rm?900:6000);})();
       <input id="lp" type="password" placeholder="Kata sandi" autocomplete="current-password">
       <input id="lp2" type="password" placeholder="Konfirmasi kata sandi" autocomplete="new-password" style="display:none">
       <button class="go" id="lgo">Masuk</button>
+      <button class="alt" id="llink" type="button" style="display:none">Kode tidak masuk? Verifikasi lewat link</button>
       <button class="alt" id="lreg">Belum punya akun? Daftar dengan Gmail</button>
       <button class="alt" id="lx">Nanti saja</button>
       <small id="lmsg"></small>
@@ -556,6 +565,7 @@ document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>setView(b.data
 /* login (Supabase) */
 const lm=$('#lm'),loginb=$('#loginb');let user=null;
 loginb.onclick=()=>{lm.classList.add('show');$('#le').focus()};
+const HASH0=location.hash;
 const sb=supabase.createClient('https://oxnbyecopebrooescgnu.supabase.co','sb_publishable_ypgFv-AupzEMPZE46FR9RA_gtm3WYrs');
 $('#pout').onclick=()=>dialog('Keluar dari akun?','Kamu perlu masuk lagi untuk memakai akunmu.',null,'Keluar',()=>{user=null;try{sb.auth.signOut()}catch(e){}try{localStorage.removeItem('nusa_user')}catch(e){}$('#prof').style.display='none';loginb.style.display='';toast('Kamu sudah keluar')},true);
 $('#lx').onclick=()=>lm.classList.remove('show');
@@ -569,7 +579,9 @@ function setUser(name,info,silent){info=info||{};user=name;
   loginb.style.display='none';$('#prof').style.display='flex';
   if(!silent){lm.classList.remove('show');close();toast('Masuk sebagai '+name)}}
 try{const sv=JSON.parse(localStorage.getItem('nusa_user')||'null');if(sv&&sv.name&&Date.now()-sv.t<30*864e5)setUser(sv.name,{email:sv.email,picture:sv.picture},true)}catch(e){}
-sb.auth.getSession().then(r=>{const u=r&&r.data&&r.data.session&&r.data.session.user;if(u&&!user){const m=u.user_metadata||{};setUser(m.full_name||m.name||(u.email||'').split('@')[0],{email:u.email,picture:m.avatar_url||m.picture},true);if(location.hash.indexOf('access_token')>-1||location.search.indexOf('code=')>-1)history.replaceState(null,'',location.pathname)}}).catch(()=>{});
+if(/error_code=otp_expired|error_description=/i.test(location.hash)){setTimeout(()=>{warn('Link sudah dipakai atau kedaluwarsa. Pilih Daftar lalu kirim link baru, atau coba Masuk dengan kata sandi.',9000);history.replaceState(null,'',location.pathname)},600)}
+sb.auth.getSession().then(r=>{const u=r&&r.data&&r.data.session&&r.data.session.user;if(u&&!user){const m=u.user_metadata||{};setUser(m.full_name||m.name||(u.email||'').split('@')[0],{email:u.email,picture:m.avatar_url||m.picture},true);if(location.hash.indexOf('access_token')>-1||location.search.indexOf('code=')>-1)history.replaceState(null,'',location.pathname)}if(u)maybePw(u)}).catch(()=>{});
+sb.auth.onAuthStateChange((ev,ses)=>{if(ev==='SIGNED_IN'&&ses&&ses.user)setTimeout(()=>maybePw(ses.user),0)});
 $('#lg').onclick=async()=>{
   /* login Google biasa: pindah ke halaman Google lalu kembali ke sini */
   try{
@@ -577,63 +589,77 @@ $('#lg').onclick=async()=>{
     if(error)warn('Login Google gagal: '+error.message,6000);
   }catch(e){warn('Login Google gagal. Coba lagi.')}
 };
-let otpMail=null,otpTimer=null;
-function setReg(r){reg=r;otpMail=null;
+let linkTimer=null;
+const pwm=$('#pwm');
+function maybePw(u){
+  if(!u||pwm.classList.contains('show'))return;
+  const prov=(u.app_metadata&&u.app_metadata.provider)||'';
+  if(prov!=='email'||(u.user_metadata&&u.user_metadata.pw_set))return;
+  let flag=false;try{flag=localStorage.getItem('nusa_need_pw')==='1'}catch(e){}
+  const fromLink=/access_token=/.test(HASH0)&&/type=(signup|magiclink|email|invite)/.test(HASH0);
+  if(!(flag||fromLink))return;
+  lm.classList.remove('show');
+  $('#pwe').textContent='Email '+(u.email||'')+' sudah terverifikasi. Buat kata sandi untuk akunmu.';
+  $('#np').value='';$('#np2').value='';
+  pwm.classList.add('show');$('#np').focus();
+}
+$('#npgo').onclick=async()=>{
+  const a=$('#np').value,b=$('#np2').value,g=$('#npgo');
+  if(a.length<6){warn('Kata sandi minimal 6 karakter.');return}
+  if(a!==b){warn('Konfirmasi kata sandi tidak sama.');return}
+  g.disabled=true;
+  try{
+    const r=await sb.auth.updateUser({password:a,data:{pw_set:true}});
+    if(r.error){warn('Gagal menyimpan kata sandi: '+r.error.message,6000);return}
+    try{localStorage.removeItem('nusa_need_pw')}catch(e){}
+    const u=r.data&&r.data.user;const m=(u&&u.user_metadata)||{};const em=(u&&u.email)||'';
+    pwm.classList.remove('show');
+    setUser(m.full_name||m.name||em.split('@')[0],{email:em,picture:m.avatar_url||m.picture});
+  }catch(err){warn('Terjadi kesalahan jaringan. Coba lagi.')}
+  finally{g.disabled=false}
+};
+$('#npx').onclick=async()=>{
+  try{localStorage.removeItem('nusa_need_pw')}catch(e){}
+  pwm.classList.remove('show');
+  try{const r=await sb.auth.getSession();const u=r&&r.data&&r.data.session&&r.data.session.user;
+    if(u)setUser((u.email||'').split('@')[0],{email:u.email})}catch(e){}
+};
+function setReg(r){reg=r;clearInterval(linkTimer);
   $('#lt').textContent=r?'Daftar akun baru':'Masuk ke Nusa';
-  $('#lgo').textContent=r?'Daftar':'Masuk';
+  $('#lgo').disabled=false;
+  $('#lgo').textContent=r?'Kirim link verifikasi':'Masuk';
   $('#le').placeholder=r?'Alamat Gmail':'Email';
-  $('#lotpw').style.display=r?'flex':'none';
-  $('#lp2').style.display=r?'':'none';
-  $('#lp').autocomplete=r?'new-password':'current-password';
+  $('#lotpw').style.display='none';
+  $('#llink').style.display='none';
+  $('#lp').style.display=r?'none':'';
+  $('#lp2').style.display='none';
   $('#lreg').textContent=r?'Sudah punya akun? Masuk':'Belum punya akun? Daftar dengan Gmail';
-  $('#lmsg').textContent=''}
+  $('#lmsg').textContent=r?'Kami kirim link ke Gmail kamu. Setelah link diklik, kamu buat kata sandi.':''}
 $('#lreg').onclick=()=>setReg(!reg);
-$('#le').oninput=()=>{if(otpMail&&$('#le').value.trim().toLowerCase()!==otpMail)otpMail=null};
-$('#lsend').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),b=$('#lsend');
-  if(!/^\S+@gmail\.com$/i.test(e)){warn('Isi alamat Gmail (@gmail.com) dulu.');return}
-  const p1=$('#lp').value;
-  if(p1.length<6){warn('Isi kata sandi (minimal 6 karakter) dulu, baru kirim kode.');return}
-  if(p1!==$('#lp2').value){warn('Konfirmasi kata sandi tidak sama.');return}
-  b.disabled=true;b.textContent='Mengirim...';
-  /* signUp: kata sandi tersimpan sekarang, kode OTP bertipe 'signup' dikirim ke email */
-  const su=await sb.auth.signUp({email:e,password:p1});
-  const error=su.error;
-  if(error){
-    b.disabled=false;b.textContent='Kirim kode';
-    warn(/rate|seconds|limit/i.test(error.message)?'Terlalu sering meminta kode. Tunggu sebentar lalu coba lagi.':'Gagal mengirim kode: '+error.message,6000);return}
-  if(su.data&&su.data.session){otpMail=null;b.disabled=false;b.textContent='Kirim kode';setUser(e.split('@')[0],{email:e});return}
-  if(su.data&&su.data.user&&Array.isArray(su.data.user.identities)&&su.data.user.identities.length===0){
-    b.disabled=false;b.textContent='Kirim kode';warn('Email sudah terdaftar. Silakan masuk.');return}
-  otpMail=e;
-  warn('Kode OTP sudah dikirim ke '+e+'. Cek inbox atau folder spam.',6000,true);
-  $('#lo').value='';$('#lo').focus();
-  let t=60;b.disabled=true;b.textContent='Kirim ulang ('+t+')';
-  clearInterval(otpTimer);otpTimer=setInterval(()=>{t--;if(t<=0){clearInterval(otpTimer);b.disabled=false;b.textContent='Kirim ulang'}else b.textContent='Kirim ulang ('+t+')'},1000)};
-$('#lgo').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),p=$('#lp').value,g=$('#lgo');
+$('#lgo').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),g=$('#lgo');
   if(!/^\S+@\S+\.\S+$/.test(e)){warn('Isi email yang valid.');return}
+  if(reg){
+    /* langkah 1: verifikasi email lewat link di Gmail */
+    if(!/@gmail\.com$/i.test(e)){warn('Pendaftaran memakai alamat Gmail (@gmail.com).');return}
+    g.disabled=true;g.textContent='Mengirim link...';
+    try{
+      const {error}=await sb.auth.signInWithOtp({email:e,options:{shouldCreateUser:true,emailRedirectTo:location.origin+location.pathname}});
+      if(error){
+        g.disabled=false;g.textContent='Kirim link verifikasi';
+        warn(/rate|seconds|limit/i.test(error.message)?'Terlalu sering meminta link. Tunggu sebentar lalu coba lagi.':'Gagal mengirim link: '+error.message,6000);return}
+      try{localStorage.setItem('nusa_need_pw','1')}catch(x){}
+      warn('Link verifikasi dikirim ke '+e+'. Buka Gmail (cek juga Spam), klik link-nya, lalu buat kata sandi.',9000,true);
+      let t=60;g.textContent='Kirim ulang link ('+t+')';
+      clearInterval(linkTimer);linkTimer=setInterval(()=>{t--;if(t<=0){clearInterval(linkTimer);g.disabled=false;g.textContent='Kirim ulang link'}else g.textContent='Kirim ulang link ('+t+')'},1000);
+    }catch(err){g.disabled=false;g.textContent='Kirim link verifikasi';warn('Terjadi kesalahan jaringan. Coba lagi.')}
+    return}
+  const p=$('#lp').value;
   if(p.length<6){warn('Kata sandi minimal 6 karakter.');return}
   g.disabled=true;
   try{
-    if(reg){
-      if(!/@gmail\.com$/i.test(e)){warn('Pendaftaran memakai alamat Gmail (@gmail.com).');return}
-      if(p!==$('#lp2').value){warn('Konfirmasi kata sandi tidak sama.');return}
-      if(otpMail!==e){warn('Tekan "Kirim kode" dulu untuk dapat kode OTP.');return}
-      const tok=$('#lo').value.trim();
-      if(!/^\d{6,8}$/.test(tok)){warn('Masukkan kode OTP dari email.');return}
-      /* akun baru bisa terdaftar sebagai 'signup', akun lama 'email'/'magiclink' - coba semuanya */
-      let v=null;
-      for(const ty of ['signup','email','magiclink']){
-        v=await sb.auth.verifyOtp({email:e,token:tok,type:ty});
-        if(!v.error&&v.data&&v.data.session)break;
-      }
-      if(v.error||!(v.data&&v.data.session)){warn('Kode OTP ditolak: '+((v.error&&v.error.message)||'sesi tidak terbentuk')+'. Pakai kode terbaru dari email terakhir.',7000);return}
-      otpMail=null;
-      setUser(e.split('@')[0],{email:e});
-    }else{
-      const r=await sb.auth.signInWithPassword({email:e,password:p});
-      if(r.error){warn('Email atau kata sandi salah.');return}
-      setUser(e.split('@')[0],{email:e});
-    }
+    const r=await sb.auth.signInWithPassword({email:e,password:p});
+    if(r.error){warn(/confirm/i.test(r.error.message)?'Email belum diverifikasi. Pilih Daftar untuk kirim link verifikasi.':'Email atau kata sandi salah.',6000);return}
+    setUser(e.split('@')[0],{email:e});
   }catch(err){warn('Terjadi kesalahan jaringan. Coba lagi.')}
   finally{g.disabled=false}
 };
