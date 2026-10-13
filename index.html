@@ -432,8 +432,8 @@ function ask(){
   };
   const done=(html,copy)=>{b.innerHTML=html;fin(copy)};
   
-  const ip=imgPrompt(t);
-  if(ip!==null&&IMG_URL){
+  const hasAtt=/Lampiran: /.test(shown+t);
+  const doImg=ip=>{
     const ct=new AbortController(),tm=setTimeout(()=>ct.abort(),60000);
     genImage(ip,ct.signal).then(url=>{
       const nm='gambar-'+new Date().toISOString().slice(0,10)+'-'+Math.random().toString(36).slice(2,5)+'.jpg',id='a'+Date.now().toString(36)+'i';
@@ -441,8 +441,9 @@ function ask(){
       c.msgs.push({r:'b',t:'Gambar: '+ip,art:id});c.ts=Date.now();saveConvs();
       fillImg(b,url,nm);busy=false;send.disabled=!inp.value.trim();sc.scrollTop=sc.scrollHeight;toast('Gambar disimpan di Artefak');
     }).catch(e=>{const em='Maaf, gambar gagal dibuat: '+(e.name==='AbortError'?'waktu habis':e.message);c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')}).finally(()=>clearTimeout(tm));
-    return;
-  }
+  };
+  const ip=hasAtt?null:imgPrompt(t);
+  if(ip!==null&&IMG_URL){doImg(ip);return}
   if(!PROXY_URL){
     setTimeout(()=>done(('Mode demo: Nusa belum terhubung ke model. Pesanmu: <b>'+esc(t)+'</b>')+'<pre>model: '+esc(model)+'\nfitur aktif: '+(tg.join(', ')||'-')+'</pre>',t),900);
     return;
@@ -451,7 +452,7 @@ function ask(){
   const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),30000);
   fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,mode:view,messages:apiHist(c)}),signal:ctl.signal})
     .then(r=>r.json().then(d=>{if(!r.ok)throw new Error(d.error||('HTTP '+r.status));return d}))
-    .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title);typeReply(b,a,()=>{fin(a);if(k)toast(k+' file disimpan di Artefak')})})
+    .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title);typeReply(b,a,()=>{fin(a);if(k)toast(k+' file disimpan di Artefak')})})
     .catch(e=>{const em='Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>clearTimeout(to));
 }
@@ -656,14 +657,19 @@ function fillImg(b,url,name){
   b.innerHTML='<img class="gimg" alt="Gambar buatan Nusa">';b.firstChild.src=url;b.insertAdjacentHTML('beforeend',ACTS);
   const bt=b.querySelector('.acts').firstChild;bt.textContent='Unduh';bt.onclick=()=>dlUrl(url,name);
 }
-const IMGV=/\b(?:buat(?:kan|in)?|bikin(?:kan|in)?|generate|create|draw|make)\s+(?:(?:aku|saya|gw|gue|dong|sebuah|satu|an?)\s+)*(gambar|foto|ilustrasi|logo|poster|lukisan|wallpaper|image|picture|photo|illustration)\b\s*(?:tentang|of|dari)?/i;
+const IMGN='gambar|foto|ilustrasi|logo|poster|lukisan|wallpaper|image|picture|photo|illustration';
+const IMGV=new RegExp('\\b(?:buat(?:kan|in)?|bikin(?:kan|in)?|generate|create|draw|make|minta|kasih(?:kan)?|tampilkan|munculkan|show me|give me|lukis(?:kan)?)\\s+(?:(?:aku|saya|gw|gue|dong|sebuah|satu|an?)\\s+)*('+IMGN+')\\b\\s*(?:tentang|of|dari)?','i');
+const IMGS=new RegExp('^\\s*(?:tolong\\s+|coba\\s+|dong\\s+)?('+IMGN+')(?:kan|in)?\\s+(?!(?:ini|itu|tersebut|di|yang|apa|kenapa|bagaimana|gimana|siapa|dimana|mana)\\b)(\\S[\\s\\S]{2,})','i');
 const IMGP={foto:'photo of',photo:'photo of',ilustrasi:'illustration of',illustration:'illustration of',logo:'logo',poster:'poster',lukisan:'painting',wallpaper:'wallpaper'};
 function imgPrompt(t){
   let m=t.match(/^\/(?:gambar|img|image)\s+([\s\S]+)/i);if(m)return m[1].trim();
   m=t.match(IMGV);if(m){const r=t.slice(m.index+m[0].length).trim();return r?((IMGP[m[1].toLowerCase()]||'')+' '+r).trim():t}
+  m=t.match(IMGS);if(m)return ((IMGP[m[1].toLowerCase()]||'')+' '+m[2].trim()).trim();
   m=t.match(/\b(?:gambarkan|gambarin|lukiskan)\s+/i);if(m){const r=t.slice(m.index+m[0].length).trim();return r||t}
   return null;
 }
+const IMGREF=/(?:belum|tidak|nggak|gak)\s+(?:bisa|dapat|mampu)\s+(?:\w+\s+){0,2}(?:membuat|menghasilkan|menampilkan|menggambar|bikin)\b|asisten teks|text-based/i;
+const shouldImg=(t,a)=>t.length<=200&&new RegExp('\\b('+IMGN+')\\b','i').test(t)&&IMGREF.test(a);
 function shrink(src){return new Promise(ok=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1024/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',.82))};im.onerror=()=>ok(src);im.src=src})}
 async function genImage(prompt,signal){
   const r=await fetch(IMG_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'image',prompt:prompt}),signal:signal}).catch(e=>{if(e.name==='AbortError')throw e;throw new Error('Worker gambar tidak terjangkau. Cek nama nusa-picture dan deploy-nya.')});
