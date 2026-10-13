@@ -280,14 +280,14 @@ button:active{opacity:.7;transform:scale(.96)}
 .msg{animation:a-msg .25s var(--e)}
 @media (prefers-reduced-motion:reduce){button,.dd.show,.hm.show,.modal.show,.modal.show .card,.psc.show,.scrim.show,.msg{animation:none!important;transition-duration:.01ms!important}}
 
-/* ===== galaxy hidup: hitam, biru samar ===== */
+/* ===== galaxy hidup: hitam pekat ala Resend, cahaya lembut + bintang ===== */
 .galaxy{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:
- radial-gradient(65% 45% at 12% 6%,rgba(40,80,160,.13),transparent 70%),
- radial-gradient(60% 45% at 92% 90%,rgba(30,70,150,.11),transparent 70%),
- linear-gradient(170deg,#010206 0%,#02030a 55%,#010105 100%)}
+ radial-gradient(70% 36% at 50% -6%,rgba(255,255,255,.075),transparent 72%),
+ radial-gradient(80% 28% at 50% 112%,rgba(255,255,255,.045),transparent 72%),
+ #000}
 .galaxy::before,.galaxy::after{content:"";position:absolute;inset:-30%;will-change:transform}
-.galaxy::before{background:radial-gradient(40% 30% at 30% 35%,rgba(50,100,190,.10),transparent 70%),radial-gradient(35% 28% at 75% 65%,rgba(35,75,160,.08),transparent 70%);animation:nebA 38s ease-in-out infinite alternate}
-.galaxy::after{background:linear-gradient(115deg,transparent 40%,rgba(90,140,230,.035) 50%,transparent 60%);animation:nebB 55s ease-in-out infinite alternate}
+.galaxy::before{background:radial-gradient(38% 28% at 30% 38%,rgba(190,200,225,.035),transparent 70%),radial-gradient(34% 26% at 76% 66%,rgba(170,185,220,.03),transparent 70%);animation:nebA 42s ease-in-out infinite alternate}
+.galaxy::after{background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.022) 50%,transparent 58%);animation:nebB 60s ease-in-out infinite alternate}
 @keyframes nebA{from{transform:translate3d(-4%,-3%,0) scale(1)}to{transform:translate3d(5%,4%,0) scale(1.12)}}
 @keyframes nebB{from{transform:translate3d(-6%,0,0) rotate(-8deg)}to{transform:translate3d(6%,3%,0) rotate(-4deg)}}
 .galaxy canvas{position:absolute;left:-40px;top:-40px}
@@ -295,16 +295,16 @@ button:active{opacity:.7;transform:scale(.96)}
 @keyframes drift{from{transform:translate3d(-14px,-8px,0)}to{transform:translate3d(14px,8px,0)}}
 .galaxy .tw{animation:twk 7s ease-in-out infinite alternate}
 @keyframes twk{from{opacity:.25}to{opacity:.8}}
-.galaxy .shoot{position:absolute;top:12%;left:-10%;width:90px;height:1px;background:linear-gradient(90deg,transparent,rgba(170,200,255,.55));opacity:0;transform:rotate(22deg);animation:shoot 19s linear 6s infinite}
+.galaxy .shoot{position:absolute;top:12%;left:-10%;width:90px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5));opacity:0;transform:rotate(22deg);animation:shoot 19s linear 6s infinite}
 @keyframes shoot{0%{opacity:0;transform:translate3d(0,0,0) rotate(22deg)}2%{opacity:.8}7%{opacity:0;transform:translate3d(70vw,32vw,0) rotate(22deg)}100%{opacity:0;transform:translate3d(70vw,32vw,0) rotate(22deg)}}
 @media (prefers-reduced-motion:reduce){.galaxy::before,.galaxy::after,.galaxy .st,.galaxy .tw,.galaxy .shoot{animation:none}.galaxy .shoot{display:none}.galaxy .tw{opacity:.55}}
 .comp{background:transparent}
-.top{background:rgba(10,10,15,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
-.box{background:rgba(18,18,25,.74)}
-.box:focus-within{background:rgba(27,27,36,.88)}
-.chip{background:rgba(18,18,25,.6)}
+.top{background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.box{background:rgba(14,14,16,.78);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.box:focus-within{background:rgba(22,22,25,.9);box-shadow:inset 0 0 0 1px rgba(255,255,255,.11)}
+.chip{background:rgba(14,14,16,.6)}
 .chip:hover{background:rgba(30,30,40,.8)}
-.side{background:rgba(10,10,14,.94)}
+.side{background:rgba(5,5,7,.95)}
 
 /* ===== bubble & respon: halus dan netral ===== */
 .bub{padding:11px 15px;border-radius:18px;line-height:1.62;letter-spacing:.003em}
@@ -331,6 +331,7 @@ button:active{opacity:.7;transform:scale(.96)}
 .hist .hx{flex:none;align-self:flex-start;margin:0 0 4px 12px;padding:3px 8px;border-radius:7px;font-size:12.5px;color:var(--muted);background:none}
 .hist .hx:hover{background:none;color:var(--ink)}
 .hempty{color:var(--muted);margin:10px}
+.ghint{flex:none;margin:2px 4px 6px;padding:9px 11px;border-radius:10px;background:rgba(255,255,255,.04);color:var(--muted);font-size:13px;line-height:1.4}
 /* ===== logo N baru ===== */
 .logo,.hl,.lg .n{background:transparent!important;color:transparent;display:grid;place-items:center;overflow:visible}
 .nl{display:block;width:100%;height:100%;object-fit:contain;-webkit-user-drag:none;user-select:none;pointer-events:none}
@@ -472,8 +473,8 @@ let busy=false,n=0;
 let cur=null,convs=[];
 const LSK='nusa_convs_v1';
 let cloudOn=false,cloudIds=new Set(),pushed={},pushT=null,cloudBusy=false,cloudWarned=false;
-let sw=0;function saveConvs(){try{localStorage.setItem(LSK,JSON.stringify(convs.slice(0,60)))}catch(e){if(!sw++)toast('Penyimpanan browser mati, obrolan tidak bisa disimpan')}if(user&&cloudOn)schedPush()}
-function loadConvs(){try{const a=JSON.parse(localStorage.getItem(LSK)||'[]');convs=Array.isArray(a)?a.filter(c=>c&&c.id&&typeof c.title==='string'&&Array.isArray(c.msgs)&&c.view==='chat'):[]}catch(e){convs=[]}}
+let sw=0;function saveConvs(){if(!user)return; /* tamu: riwayat tidak disimpan */try{localStorage.setItem(LSK,JSON.stringify(convs.slice(0,60)))}catch(e){if(!sw++)toast('Penyimpanan browser mati, obrolan tidak bisa disimpan')}if(cloudOn)schedPush()}
+function loadConvs(){if(!user){convs=[];try{localStorage.removeItem(LSK)}catch(e){}return}try{const a=JSON.parse(localStorage.getItem(LSK)||'[]');convs=Array.isArray(a)?a.filter(c=>c&&c.id&&typeof c.title==='string'&&Array.isArray(c.msgs)&&c.view==='chat'):[]}catch(e){convs=[]}}
 function apiHist(c){const o=[];c.msgs.forEach((m,i)=>{if(m.err)return;const nx=c.msgs[i+1];if(m.r==='u'&&nx&&nx.err)return;o.push({role:m.r==='u'?'user':'assistant',content:m.t})});return o.slice(-20)}
 const ACTS='<div class="acts"><button>Salin</button><button>Ulangi</button><button>Suka</button></div>';
 const expd=new Set();
@@ -487,7 +488,8 @@ function grp(c){
 }
 function renderHist(){
   const h=$('#hist'),st=h.scrollTop;h.innerHTML='';curHist=null;
-  if(!convs.length){const e=document.createElement('small');e.className='hempty';e.textContent='Belum ada obrolan';h.appendChild(e);return}
+  if(!convs.length){if(!user){const g=document.createElement('div');g.className='ghint';g.textContent='Riwayat obrolan tidak disimpan. Masuk untuk menyimpannya.';h.appendChild(g)}const e=document.createElement('small');e.className='hempty';e.textContent='Belum ada obrolan';h.appendChild(e);return}
+  if(!user){const g=document.createElement('div');g.className='ghint';g.textContent='Riwayat obrolan tidak disimpan. Masuk untuk menyimpannya.';h.appendChild(g)}
   let lg='';
   [...convs].sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||(b.ts||0)-(a.ts||0)).forEach(c=>{
     const g=grp(c);if(g!==lg){const s=document.createElement('small');s.textContent=g;h.appendChild(s);lg=g}
@@ -552,6 +554,7 @@ function ask(){
     cur={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),view:view,title:ti,full:t.replace(/\s+/g,' ').trim().slice(0,300),msgs:[],pin:false,ts:Date.now()};convs.unshift(cur);renderHist()}
   const c=cur;c.msgs.push({r:'u',t:shown});c.ts=Date.now();saveConvs();
   if(!user){guestBump();const sisa=GUEST_LIMIT-guestUsed();if(sisa<=2)setTimeout(()=>toast(sisa>0?'Sisa '+sisa+' chat gratis. Masuk untuk tanpa batas':'Ini chat gratis terakhirmu. Masuk untuk tanpa batas'),300)}
+  if(!user&&!window._gw){window._gw=1;setTimeout(()=>toast('Kamu belum masuk, obrolan ini tidak akan disimpan'),500)}
   n++;add('u',shown);att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
   const b=add('b','<span class="think"><span class="atom" aria-label="Memuat"><span class="atom-in"><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="core"></span></span></span><b>Nusa started..</b></span>');
   const model=$('#model').value;
@@ -719,7 +722,7 @@ function setUser(name,info,silent){info=info||{};user=name;
   const ini=(name||'?').trim().charAt(0).toUpperCase();
   if(info.picture){const im=document.createElement('img');im.src=info.picture;im.alt='';im.referrerPolicy='no-referrer';im.onerror=()=>{av.textContent=ini};av.appendChild(im)}else av.textContent=ini;
   $('#pn').textContent=name;$('#pm').textContent=info.email||'';
-  loginb.style.display='none';$('#prof').style.display='flex';cloudLoad();
+  loginb.style.display='none';$('#prof').style.display='flex';renderHist();cloudLoad();
   if(!silent){lm.classList.remove('show');close();toast('Masuk sebagai '+name)}}
 try{const sv=JSON.parse(localStorage.getItem('nusa_user')||'null');if(sv&&sv.name&&Date.now()-sv.t<30*864e5)setUser(sv.name,{email:sv.email,picture:sv.picture},true)}catch(e){}
 if(/error_code=otp_expired|error_description=/i.test(location.hash)){setTimeout(()=>{warn('Link sudah dipakai atau kedaluwarsa. Pilih Daftar lalu kirim link baru, atau coba Masuk dengan kata sandi.',9000);history.replaceState(null,'',location.pathname)},600)}
@@ -1117,7 +1120,7 @@ loadConvs();hero();renderPop();
     const x=cv.getContext('2d');x.scale(dpr,dpr);const r=rng(seed);
     for(let i=0;i<n;i++){
       const px=r()*w,py=r()*h,rad=big?.5+r()*.7:.25+r()*.6,a=big?.3+r()*.35:.12+r()*.35,t=r();
-      x.fillStyle='rgba('+(t<.55?'235,242,255':t<.9?'170,195,255':'255,235,215')+','+a.toFixed(2)+')';
+      x.fillStyle='rgba('+(t<.6?'245,247,255':t<.9?'205,215,235':'255,240,225')+','+a.toFixed(2)+')';
       x.beginPath();x.arc(px,py,rad,0,6.2832);x.fill();
     }
   }
