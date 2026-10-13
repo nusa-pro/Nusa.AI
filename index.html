@@ -67,6 +67,9 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 .bub{max-width:88%;padding:10px 14px;border-radius:16px;white-space:pre-wrap;word-wrap:break-word}
 .u .bub{background:var(--user);color:var(--user-ink);border-bottom-right-radius:5px}
 .b .bub{background:var(--bot);border:0;border-bottom-left-radius:5px}
+.tw{display:none}
+.tw.on{display:inline;animation:twin .5s cubic-bezier(.22,.8,.3,1) both}
+@keyframes twin{from{opacity:0;filter:blur(3px)}to{opacity:1;filter:blur(0)}}
 .typing::after{content:none}
 @keyframes caret{50%{opacity:0}}
 .bub code{background:#000;border-radius:4px;padding:1px 5px;font-size:.92em}
@@ -612,20 +615,36 @@ const IMG_URL='https://nusa-picture.pinnshiki.workers.dev/'; // Worker khusus ga
 const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
 function typeReply(b,text,fin){
   if(matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
-  const dur=Math.min(3000,Math.max(700,text.length*7)); // ms, jawaban panjang dipercepat
-  let t0=null,shown=-1,lt=0;b.classList.add('typing','soft');
+  b.classList.add('soft');
+  b.innerHTML=renderReply(text);
+  // bungkus tiap kata jadi span (disembunyikan dulu), lalu munculkan satu-satu dengan fade halus
+  const tw=document.createTreeWalker(b,NodeFilter.SHOW_TEXT),nodes=[];
+  while(tw.nextNode())nodes.push(tw.currentNode);
+  const words=[];
+  nodes.forEach(n=>{
+    const parts=n.nodeValue.match(/\S+\s*|\s+/g);if(!parts)return;
+    const fr=document.createDocumentFragment();
+    parts.forEach(w=>{const sp=document.createElement('span');sp.className='tw';sp.textContent=w;fr.appendChild(sp);words.push(sp)});
+    n.parentNode.replaceChild(fr,n);
+  });
+  const n=words.length;
+  if(!n){b.classList.remove('soft');return fin()}
+  const dur=Math.min(4200,Math.max(900,text.length*9)); // ms, jawaban panjang tetap dipercepat
+  let t0=null,shown=0;
   function step(ts){
     if(t0===null)t0=ts;
-    const p=Math.min(1,(ts-t0)/dur);
-    let k=Math.floor(p*text.length);
-    if(p<1){while(k<text.length&&!/\s/.test(text[k]))k++} // maju per kata agar tidak berkedip
-    else k=text.length;
-    if(k!==shown&&(ts-lt>45||p>=1)){
-      shown=k;lt=ts;b.innerHTML=renderReply(text.slice(0,k).replace(/`{1,2}$/,'').replace(/\*$/,''));
+    const p=Math.min(1,(ts-t0)/dur),e=1-Math.pow(1-p,1.6); // ease-out lembut: cepat di awal, melambat halus
+    const k=p>=1?n:Math.floor(e*n);
+    if(k>shown){
+      for(let i=shown;i<k;i++)words[i].classList.add('on');
+      shown=k;
       if(sc.scrollHeight-sc.scrollTop-sc.clientHeight<140)sc.scrollTop=sc.scrollHeight;
     }
     if(p<1)requestAnimationFrame(step);
-    else{b.classList.remove('typing','soft');b.innerHTML=renderReply(text);fin()}
+    else{
+      fin();
+      setTimeout(()=>{if(b.isConnected){b.classList.remove('soft');b.innerHTML=renderReply(text)}},600); // rapikan DOM setelah fade selesai
+    }
   }
   requestAnimationFrame(step);
 }
