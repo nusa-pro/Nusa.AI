@@ -504,20 +504,23 @@ function ask(){
   const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),90000);
   proxyCall(JSON.stringify({model:model,mode:view,messages:buildMsgs(c)}),ctl.signal)
     .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title);typeReply(b,a,()=>{fin(a);if(k)toast(k+' file disimpan di Artefak')})})
-    .catch(e=>{const em='Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
+    .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>clearTimeout(to));
 }
 /* panggil Worker; ulangi otomatis (maks 3x) kalau server sibuk/error sementara */
 async function proxyCall(body,signal){
-  let last=null;
+  let last=null,tok='';
+  try{const ss=await sb.auth.getSession();tok=(ss&&ss.data&&ss.data.session&&ss.data.session.access_token)||''}catch(e){}
+  const hd={'Content-Type':'application/json'};if(tok)hd.Authorization='Bearer '+tok;
   for(let i=0;i<3;i++){
     try{
-      const r=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:body,signal:signal});
+      const r=await fetch(PROXY_URL,{method:'POST',headers:hd,body:body,signal:signal});
       let d={};try{d=await r.json()}catch(e){}
       if(r.ok)return d;
       last=new Error(d.error||('HTTP '+r.status));
-      if(![429,500,502,503,504,529].includes(r.status)&&!/high demand|overload|try again/i.test(last.message))throw last;
-    }catch(e){if(e.name==='AbortError')throw e;last=e;if(i===2)break}
+      if(d.code==='guest_limit'){last.fatal=true;last.limit=true;throw last}
+      if(![429,500,502,503,504,529].includes(r.status)&&!/high demand|overload|try again/i.test(last.message)){last.fatal=true;throw last}
+    }catch(e){if(e.name==='AbortError'||e.fatal)throw e;last=e;if(i===2)break}
     await new Promise(res=>setTimeout(res,1500*(i+1)));
   }
   throw new Error(last&&last.message&&!/^HTTP (429|5\d\d)$/.test(last.message)?last.message:'Server AI sedang sibuk. Coba lagi sebentar lagi.');
