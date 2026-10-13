@@ -582,7 +582,7 @@ function setReg(r){reg=r;otpMail=null;
   $('#lt').textContent=r?'Daftar akun baru':'Masuk ke Nusa';
   $('#lgo').textContent=r?'Daftar':'Masuk';
   $('#le').placeholder=r?'Alamat Gmail':'Email';
-  $('#lotpw').style.display='none';
+  $('#lotpw').style.display=r?'flex':'none';
   $('#lp2').style.display=r?'':'none';
   $('#lp').autocomplete=r?'new-password':'current-password';
   $('#lreg').textContent=r?'Sudah punya akun? Masuk':'Belum punya akun? Daftar dengan Gmail';
@@ -591,11 +591,19 @@ $('#lreg').onclick=()=>setReg(!reg);
 $('#le').oninput=()=>{if(otpMail&&$('#le').value.trim().toLowerCase()!==otpMail)otpMail=null};
 $('#lsend').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),b=$('#lsend');
   if(!/^\S+@gmail\.com$/i.test(e)){warn('Isi alamat Gmail (@gmail.com) dulu.');return}
+  const p1=$('#lp').value;
+  if(p1.length<6){warn('Isi kata sandi (minimal 6 karakter) dulu, baru kirim kode.');return}
+  if(p1!==$('#lp2').value){warn('Konfirmasi kata sandi tidak sama.');return}
   b.disabled=true;b.textContent='Mengirim...';
-  const {error}=await sb.auth.signInWithOtp({email:e,options:{shouldCreateUser:true}});
+  /* signUp: kata sandi tersimpan sekarang, kode OTP bertipe 'signup' dikirim ke email */
+  const su=await sb.auth.signUp({email:e,password:p1});
+  const error=su.error;
   if(error){
     b.disabled=false;b.textContent='Kirim kode';
     warn(/rate|seconds|limit/i.test(error.message)?'Terlalu sering meminta kode. Tunggu sebentar lalu coba lagi.':'Gagal mengirim kode: '+error.message,6000);return}
+  if(su.data&&su.data.session){otpMail=null;b.disabled=false;b.textContent='Kirim kode';setUser(e.split('@')[0],{email:e});return}
+  if(su.data&&su.data.user&&Array.isArray(su.data.user.identities)&&su.data.user.identities.length===0){
+    b.disabled=false;b.textContent='Kirim kode';warn('Email sudah terdaftar. Silakan masuk.');return}
   otpMail=e;
   warn('Kode OTP sudah dikirim ke '+e+'. Cek inbox atau folder spam.',6000,true);
   $('#lo').value='';$('#lo').focus();
@@ -609,15 +617,16 @@ $('#lgo').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),p=$('#lp
     if(reg){
       if(!/@gmail\.com$/i.test(e)){warn('Pendaftaran memakai alamat Gmail (@gmail.com).');return}
       if(p!==$('#lp2').value){warn('Konfirmasi kata sandi tidak sama.');return}
-      /* daftar langsung dengan email + kata sandi, tanpa OTP */
-      const su=await sb.auth.signUp({email:e,password:p});
-      if(su.error){
-        warn(/already|registered/i.test(su.error.message)?'Email sudah terdaftar. Silakan masuk.':'Gagal daftar: '+su.error.message,6000);return}
-      if(su.data&&su.data.user&&Array.isArray(su.data.user.identities)&&su.data.user.identities.length===0){warn('Email sudah terdaftar. Silakan masuk.');return}
-      if(!(su.data&&su.data.session)){
-        const si=await sb.auth.signInWithPassword({email:e,password:p});
-        if(si.error){warn('Akun dibuat, tapi perlu konfirmasi email dulu. Matikan "Confirm email" di Supabase atau cek inbox.',7000);return}
+      if(otpMail!==e){warn('Tekan "Kirim kode" dulu untuk dapat kode OTP.');return}
+      const tok=$('#lo').value.trim();
+      if(!/^\d{6,8}$/.test(tok)){warn('Masukkan kode OTP dari email.');return}
+      /* akun baru bisa terdaftar sebagai 'signup', akun lama 'email'/'magiclink' - coba semuanya */
+      let v=null;
+      for(const ty of ['signup','email','magiclink']){
+        v=await sb.auth.verifyOtp({email:e,token:tok,type:ty});
+        if(!v.error&&v.data&&v.data.session)break;
       }
+      if(v.error||!(v.data&&v.data.session)){warn('Kode OTP ditolak: '+((v.error&&v.error.message)||'sesi tidak terbentuk')+'. Pakai kode terbaru dari email terakhir.',7000);return}
       otpMail=null;
       setUser(e.split('@')[0],{email:e});
     }else{
