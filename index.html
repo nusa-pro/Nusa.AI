@@ -8,7 +8,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
@@ -570,44 +569,13 @@ function setUser(name,info,silent){info=info||{};user=name;
   loginb.style.display='none';$('#prof').style.display='flex';
   if(!silent){lm.classList.remove('show');close();toast('Masuk sebagai '+name)}}
 try{const sv=JSON.parse(localStorage.getItem('nusa_user')||'null');if(sv&&sv.name&&Date.now()-sv.t<30*864e5)setUser(sv.name,{email:sv.email,picture:sv.picture},true)}catch(e){}
-sb.auth.getSession().then(r=>{const u=r&&r.data&&r.data.session&&r.data.session.user;if(u&&!user)setUser((u.email||'').split('@')[0],{email:u.email},true)}).catch(()=>{});
-const GOOGLE_CLIENT_ID='853427150004-e2gupknlko4bonlbk6pd43inkn4j155a.apps.googleusercontent.com';
-let gtc=null;
-$('#lg').onclick=()=>{
-  const s=$('#lmsg');
-  if(!(window.google&&google.accounts&&google.accounts.oauth2)){warn('Layanan Google belum termuat. Cek koneksi lalu coba lagi.');return}
-  const tokenFlow=()=>{
-  if(!gtc){gtc=google.accounts.oauth2.initTokenClient({client_id:GOOGLE_CLIENT_ID,scope:'openid email profile',prompt:'select_account',
-    callback:async r=>{
-      if(r.error||!r.access_token){warn('Login Google dibatalkan atau gagal.');return}
-      try{const u=await (await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+r.access_token}})).json();
-        setUser((u.name||u.given_name||u.email||'Akun Google'),{email:u.email,picture:u.picture})}
-      catch(e){warn('Gagal mengambil profil Google.')}
-    },
-    error_callback:()=>{warn('Login Google dibatalkan atau gagal.')}});}
-  gtc.requestAccessToken({prompt:'select_account'});
-  };
-  /* utama: sheet pemilih akun Google (FedCM/One Tap) tampil di atas halaman, tanpa pindah tab */
-  if(google.accounts.id){
-    try{
-      if(!window._gidInit){
-        google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,use_fedcm_for_prompt:true,auto_select:false,cancel_on_tap_outside:false,
-          callback:r=>{
-            try{
-              const b=r.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
-              const u=JSON.parse(decodeURIComponent(escape(atob(b))));
-              setUser((u.name||u.given_name||u.email||'Akun Google'),{email:u.email,picture:u.picture});
-            }catch(e){warn('Gagal membaca profil Google.')}
-          }});
-        window._gidInit=true;
-      }
-      google.accounts.id.prompt(n=>{
-        if((n.isNotDisplayed&&n.isNotDisplayed())||(n.isSkippedMoment&&n.isSkippedMoment())){tokenFlow()}
-      });
-      return;
-    }catch(e){}
-  }
-  tokenFlow();
+sb.auth.getSession().then(r=>{const u=r&&r.data&&r.data.session&&r.data.session.user;if(u&&!user){const m=u.user_metadata||{};setUser(m.full_name||m.name||(u.email||'').split('@')[0],{email:u.email,picture:m.avatar_url||m.picture},true);if(location.hash.indexOf('access_token')>-1||location.search.indexOf('code=')>-1)history.replaceState(null,'',location.pathname)}}).catch(()=>{});
+$('#lg').onclick=async()=>{
+  /* login Google biasa: pindah ke halaman Google lalu kembali ke sini */
+  try{
+    const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:'select_account'}}});
+    if(error)warn('Login Google gagal: '+error.message,6000);
+  }catch(e){warn('Login Google gagal. Coba lagi.')}
 };
 let otpMail=null,otpTimer=null;
 function setReg(r){reg=r;otpMail=null;
@@ -644,8 +612,13 @@ $('#lgo').onclick=async()=>{const e=$('#le').value.trim().toLowerCase(),p=$('#lp
       if(otpMail!==e){warn('Tekan "Kirim kode" dulu untuk dapat kode OTP.');return}
       const tok=$('#lo').value.trim();
       if(!/^\d{6}$/.test(tok)){warn('Masukkan 6 digit kode OTP dari email.');return}
-      const v=await sb.auth.verifyOtp({email:e,token:tok,type:'email'});
-      if(v.error){warn('Kode OTP salah atau kedaluwarsa.');return}
+      /* akun baru bisa terdaftar sebagai 'signup', akun lama 'email'/'magiclink' - coba semuanya */
+      let v=null;
+      for(const ty of ['email','signup','magiclink']){
+        v=await sb.auth.verifyOtp({email:e,token:tok,type:ty});
+        if(!v.error&&v.data&&v.data.session)break;
+      }
+      if(v.error||!(v.data&&v.data.session)){warn('Kode OTP ditolak: '+((v.error&&v.error.message)||'sesi tidak terbentuk')+'. Pakai kode terbaru dari email terakhir.',7000);return}
       const u=await sb.auth.updateUser({password:p});
       if(u.error){warn('Gagal menyimpan kata sandi: '+u.error.message,6000);return}
       otpMail=null;
