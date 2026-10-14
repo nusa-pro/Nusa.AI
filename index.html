@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Sans+3:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
 <style>
 :root{
   color-scheme:dark;--bg:#000;--panel:#0E0E11;--raise:#17171B;--ink:#EDEDF0;--muted:#868691;--line:transparent;
@@ -142,7 +142,7 @@ textarea{width:100%;border:0;background:transparent;color:var(--ink);font:inheri
 .pop button:hover{background:#202026}
 .pop b{display:block;font-weight:600}
 .pop span{color:var(--muted);font-size:14px}
-.plus{font-size:22px;line-height:1;transition:transform .15s}
+.plus{font-size:22px;line-height:1;border-radius:50%;width:36px;height:36px;transition:transform .15s}
 .plus[aria-expanded="true"]{transform:rotate(45deg)}
 .nav{display:flex;flex-direction:column;gap:2px}
 .nav button{background:none;border:0;text-align:left;padding:10px 12px;border-radius:10px;color:var(--muted);font-weight:600}
@@ -358,6 +358,10 @@ button:active{opacity:.7;transform:scale(.96)}
 .top{z-index:3}
 .dd,.hm{background:#1B1B20!important;opacity:1;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 14px 40px rgba(0,0,0,.85),inset 0 0 0 1px rgba(255,255,255,.06)}
 .dd{z-index:20}
+
+/* beranda: judul pakai font serif ala Claude */
+.hero h1{font-family:"Newsreader","Tiempos Headline",Georgia,"Times New Roman",serif;font-weight:400;letter-spacing:-.01em;line-height:1.2}
+.hero p:empty{display:none}
 </style>
 </head>
 <body>
@@ -467,7 +471,7 @@ setTimeout(end,rm?900:6000);})();
         <input type="file" id="fpho" accept="image/*" multiple style="display:none">
         <input type="file" id="ffil" multiple style="display:none">
         <div class="atts" id="atts"></div>
-        <textarea id="in" rows="1" placeholder="Tanya apa saja ke Nusa…" aria-label="Pesan"></textarea>
+        <textarea id="in" rows="1" placeholder="Chat dengan Nusa…" aria-label="Pesan"></textarea>
         <div class="row">
           <button class="ic plus" id="plus" aria-label="Contoh pertanyaan" aria-expanded="false">+</button>
           
@@ -530,7 +534,7 @@ function openConv(id){
   view=c.view;last=view;document.body.dataset.view=view;
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
   $('#model').value='Nusa Cepat';
-  inp.placeholder=MODES[view].ph;convTitle[view]=c.title;$('#title').textContent=c.title;
+  inp.placeholder=MODES[view].ph2||MODES[view].ph;convTitle[view]=c.title;$('#title').textContent=c.title;
   chat.innerHTML='';
   c.msgs.forEach(m=>{
     if(typeof m.t!=='string')return;
@@ -542,7 +546,7 @@ function openConv(id){
   renderHist();renderPop();grow();close();sc.scrollTop=sc.scrollHeight;
 }
 const MODES={
- chat:{h:'Ayo, kita mulai dari mana',p:'Nusa.ai',ph:'Tanya apa saja ke Nusa…',t:'Obrolan baru'}
+ chat:{h:'Ayo, kita mulai dari mana',p:'',ph:'Chat dengan Nusa…',ph2:'Balas chat Nusa…',t:'Obrolan baru'}
 };
 let view='chat';
 const convTitle={chat:'Obrolan baru'};
@@ -569,11 +573,11 @@ function ask(){
   if(!user&&guestUsed()>=GUEST_LIMIT){lm.classList.add('show');toast('Batas chat tamu hari ini habis. Masuk dulu biar bebas ngobrol');return}const t=t0||('Lampiran: '+att.map(a=>a.n).join(', '));
   const shown=t0&&att.length?t+'\nLampiran: '+att.map(a=>a.n).join(', '):t;
   if(!cur){chat.innerHTML='';const ti=mkTitle(t);convTitle[view]=ti;$('#title').textContent=ti;
-    cur={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),view:view,title:ti,full:t.replace(/\s+/g,' ').trim().slice(0,300),msgs:[],pin:false,ts:Date.now()};convs.unshift(cur);renderHist()}
+    cur={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),view:view,title:ti,full:t.replace(/\s+/g,' ').trim().slice(0,300),msgs:[],pin:false,ts:Date.now()};convs.unshift(cur);inp.placeholder=MODES[view].ph2||MODES[view].ph;renderHist()}
   const c=cur;c.msgs.push({r:'u',t:shown});c.ts=Date.now();saveConvs();
   if(!user){guestBump();const sisa=GUEST_LIMIT-guestUsed();if(sisa<=2)setTimeout(()=>toast(sisa>0?'Sisa '+sisa+' chat gratis. Masuk untuk tanpa batas':'Ini chat gratis terakhirmu. Masuk untuk tanpa batas'),300)}
   if(!user&&!window._gw){window._gw=1;setTimeout(()=>toast('Kamu belum masuk, obrolan ini tidak akan disimpan'),500)}
-  n++;add('u',shown);att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
+  n++;add('u',shown);window._sent=att.slice();att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
   const b=add('b','<span class="think"><span class="atom" aria-label="Memuat"><span class="atom-in"><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="core"></span></span></span><b>Nusa started..</b></span>');
   const model=$('#model').value;
   const tg=webOn?['Pencarian web']:[];
@@ -628,6 +632,19 @@ async function proxyCall(body,signal){
 }
 const IMG_URL='https://nusa-picture.pinnshiki.workers.dev/'; // Worker khusus gambar
 const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
+function safeCut(s,n){
+  if(n>=s.length)return s;
+  if(n<=0)return '';
+  var c=s.charCodeAt(n-1);
+  if(c>=0xD800&&c<=0xDBFF)n++; /* jangan putus surrogate pair */
+  while(n<s.length){
+    var cp=s.codePointAt(n),w=cp>0xFFFF?2:1;
+    if(cp===0x200D){n+=w;if(n<s.length)n+=(s.codePointAt(n)>0xFFFF?2:1)} /* ZWJ + emoji berikutnya */
+    else if(cp===0xFE0F||cp===0x20E3||(cp>=0x1F3FB&&cp<=0x1F3FF)||(cp>=0xE0020&&cp<=0xE007F))n+=w;
+    else break;
+  }
+  return s.slice(0,n);
+}
 function typeReply(b,text,fin){
   if(matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
   b.classList.add('soft');
@@ -647,7 +664,7 @@ function typeReply(b,text,fin){
     if(k!==shown){
       for(let i=idx;i<items.length;i++){const it=items[i];if(it.start>=k)break;
         const n=Math.min(it.full.length,k-it.start);
-        it.nd.nodeValue=it.full.slice(0,n);
+        it.nd.nodeValue=safeCut(it.full,n);
         if(it.par&&it.par.style.display==='none')it.par.style.display='';
         if(n>=it.full.length)idx=i+1}
       shown=k;
@@ -991,6 +1008,13 @@ function buildMsgs(c){
   }
   if(pre)last.content=pre+'Pesan pengguna: '+q;
   if(persona.mirror&&persona.style!=='formal')last.content+=styleNote(c);
+  const sa=window._sent||[];window._sent=null;
+  if(sa.length){
+    const imgs=sa.filter(a=>a.img).map(a=>a.img).slice(0,4);
+    sa.forEach(a=>{if(a.txt)last.content+='\n\n[ISI FILE '+a.n+':\n'+a.txt+']'});
+    sa.forEach(a=>{if(!a.img&&!a.txt)last.content+='\n\n[File '+a.n+' dilampirkan tapi formatnya tidak bisa dibaca Nusa]'});
+    if(imgs.length){last.images=imgs;if(/^Lampiran: /.test(q))last.content=last.content.replace(q,'Jelaskan isi gambar ini.')}
+  }
   return o;
 }
 function renderKB(){
@@ -1036,8 +1060,9 @@ function renderAtt(){
   grow();
 }
 function addAtt(files){
-  [...files].forEach(f=>{const it={n:f.name||'foto.jpg',s:f.size,img:null};att.push(it);
-    if(f.type.startsWith('image/')&&f.size<8388608){const r=new FileReader();r.onload=()=>{it.img=r.result;renderAtt()};r.readAsDataURL(f)}});
+  [...files].forEach(f=>{const it={n:f.name||'foto.jpg',s:f.size,img:null,txt:null};att.push(it);
+    if(f.type.startsWith('image/')&&f.size<8388608){const r=new FileReader();r.onload=()=>{shrink(r.result).then(u=>{it.img=u;renderAtt()})};r.readAsDataURL(f)}
+    else if(f.size<300000&&(/^text\//.test(f.type)||/\.(txt|md|csv|json|js|ts|py|html|css|xml|yml|yaml|log|sql|java|c|cpp|php)$/i.test(f.name))){const r=new FileReader();r.onload=()=>{it.txt=String(r.result).slice(0,30000)};r.readAsText(f)}});
   renderAtt();
 }
 ['fcam','fpho','ffil'].forEach(id=>{$('#'+id).onchange=e=>{addAtt(e.target.files);e.target.value='';closePop()}});
@@ -1117,7 +1142,7 @@ mic.onclick=async()=>{
         if(!t)toast('Suara tidak terdengar');
         else{inp.value=(inp.value?inp.value.replace(/\s*$/,' '):'')+t;grow();send.disabled=false}
       }catch(e){toast('Gagal mengubah suara: '+e.message)}
-      finally{inp.placeholder=MODES[view].ph;mic.disabled=false}
+      finally{inp.placeholder=(cur&&MODES[view].ph2)||MODES[view].ph;mic.disabled=false}
     };
     rec.start();mic.classList.add('rec');tmEl.textContent='0:00';
     rec.lim=setTimeout(()=>{if(rec)rec.stop()},60000);
