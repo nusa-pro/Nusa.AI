@@ -607,7 +607,7 @@ function ask(){
   }
   
   const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),90000);
-  proxyCall(JSON.stringify({model:model,mode:view,messages:buildMsgs(c)}),ctl.signal)
+  proxyCall(JSON.stringify({messages:buildMsgs(c).map(m=>({role:m.role,content:m.content}))}),ctl.signal)
     .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title);typeReply(b,a,()=>{fin(a);if(k)toast(k+' file disimpan di Artefak')})})
     .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>clearTimeout(to));
@@ -616,13 +616,13 @@ function ask(){
 async function proxyCall(body,signal){
   let last=null,tok='';
   try{const ss=await sb.auth.getSession();tok=(ss&&ss.data&&ss.data.session&&ss.data.session.access_token)||''}catch(e){}
-  const hd={'Content-Type':'application/json'};if(tok)hd.Authorization='Bearer '+tok;
+  const hd={'Content-Type':'application/json'};
   for(let i=0;i<3;i++){
     try{
       const r=await fetch(PROXY_URL,{method:'POST',headers:hd,body:body,signal:signal});
       let d={};try{d=await r.json()}catch(e){}
-      if(r.ok)return d;
-      last=new Error(d.error||('HTTP '+r.status));
+      if(r.ok){if(d.choices&&d.choices[0]&&d.choices[0].message)d.reply=d.choices[0].message.content||'';return d}
+      last=new Error(typeof d.error==='string'?d.error:((d.error&&d.error.message)||('HTTP '+r.status)));
       if(d.code==='guest_limit'){last.fatal=true;last.limit=true;throw last}
       if(![429,500,502,503,504,529].includes(r.status)&&!/high demand|overload|try again/i.test(last.message)){last.fatal=true;throw last}
     }catch(e){if(e.name==='AbortError'||e.fatal)throw e;last=e;if(i===2)break}
@@ -631,7 +631,7 @@ async function proxyCall(body,signal){
   throw new Error(last&&last.message&&!/^HTTP (429|5\d\d)$/.test(last.message)?last.message:'Server AI sedang sibuk. Coba lagi sebentar lagi.');
 }
 const IMG_URL='https://nusa-picture.pinnshiki.workers.dev/'; // Worker khusus gambar
-const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
+const PROXY_URL='https://nusa-api.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
 function safeCut(s,n){
   if(n>=s.length)return s;
   if(n<=0)return '';
