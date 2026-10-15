@@ -1026,7 +1026,7 @@ document.addEventListener('click',e=>{if(!e.target.closest('#pop'))closePop()});
 const MODELS=[
   {id:'auto',n:'Nusa Auto',b:'NVIDIA',d:'Otomatis: Nemotron untuk chat, kode, dan web'},
   {id:'deepseek',n:'DeepSeek V4',b:'DeepSeek',d:'Untuk kode dan penalaran'},
-  {id:'glm',n:'GLM 5.3',b:'Z.ai',d:'Alternatif untuk kode dan obrolan'},
+  {id:'gemini',n:'Gemini 3.8 Flash',b:'Google',d:'Untuk kode dan tugas panjang'},
   {id:'gptoss',n:'GPT-OSS 120B',b:'OpenAI',d:'Model open-weight untuk obrolan umum'}
 ];
 let modelPick=(()=>{try{const v=localStorage.getItem('nusa_model');return MODELS.some(m=>m.id===v)?v:'auto'}catch(e){return 'auto'}})();
