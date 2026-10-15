@@ -368,6 +368,14 @@ button:active{opacity:.7;transform:scale(.96)}
 /* beranda: judul pakai font serif ala Claude */
 .hero h1{font-family:"Newsreader","Tiempos Headline",Georgia,"Times New Roman",serif;font-weight:400;letter-spacing:-.01em;line-height:1.2}
 .hero p:empty{display:none}
+/* desktop: saat obrolan kosong, kolom chat di tengah layar */
+@media (min-width:761px){
+  body[data-view="chat"] .main:has(.hero){position:relative;justify-content:center}
+  body[data-view="chat"] .main:has(.hero)>.top{position:absolute;top:0;left:0;right:0}
+  body[data-view="chat"] .main:has(.hero)>.scroll{flex:0 0 auto;overflow:visible;padding:0 14px}
+  body[data-view="chat"] .main:has(.hero) .hero{margin:0;padding:0 8px 22px}
+  body[data-view="chat"] .main:has(.hero)>.comp{padding-top:0;padding-bottom:0}
+}
 
 /* editor kode */
 #ce{display:none;position:fixed;inset:0;z-index:40;background:var(--bg);flex-direction:column}
@@ -645,7 +653,7 @@ function ask(){
   
   const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),90000);
   proxyCall(JSON.stringify({messages:buildMsgs(c).map(m=>({role:m.role,content:m.content}))}),ctl.signal)
-    .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=k&&typeof cImport==='function'?cImport(arts.slice(0,k).reverse()):null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
+    .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
     .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>clearTimeout(to));
 }
@@ -720,7 +728,43 @@ function codeBlock(seg){
   const nm=fm||('kode.'+ex),sv=function(d){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'};
   return '<div class="fc" data-n="'+nm+'"'+(l?' data-lang="'+l+'"':'')+'><button class="fo" type="button" data-a="open">'+sv('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>')+'<span class="fn"><b>'+nm+'</b><small>'+ex.toUpperCase()+' \u00B7 '+code.split('\n').length+' baris</small></span></button><button class="fa" type="button" data-a="copy" aria-label="Salin">'+sv('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>')+'</button>'+(l?'<button class="fa" type="button" data-a="run" aria-label="Preview">'+sv('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')+'</button>':'')+'<pre'+(l?' data-lang="'+l+'"':'')+'>'+esc(code)+'</pre></div>';
 }
-function renderReply(x){return x.split('```').map((seg,k)=>k%2?codeBlock(seg):esc(seg).replace(/^\n+|\n+$/g,'').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>')).join('')}
+const WEBX=/^(html|css|jsx?|tsx?|json|py|svg|php|java|kt|c|cpp|cs|go|rs|sql|xml|ya?ml|sh|rb|swift|md)$/;
+function fileInfo(seg,prev){
+  const m=seg.match(/^([^\n]*)\n/),info=m?m[1].trim():'',has=m&&/^[\w+#.\-]*$/.test(info),code=(has?seg.slice(m[0].length):seg).replace(/\n$/,'');
+  const lg=(info.split(/\s+/)[0]||'').toLowerCase().replace(/[^a-z0-9+#.\-]/g,'');
+  let fm=(info.match(/[\w\-]+\.[a-z0-9]{1,5}\b/i)||[])[0];
+  if(!fm){const bf=(prev||'').slice(-120).match(FNR);if(bf)fm=bf[bf.length-1]}
+  let ex=fm?fm.split('.').pop().toLowerCase():(EXT[lg]||lg);if(ex==='htm')ex='html';if(!/^[a-z0-9]{1,5}$/.test(ex))ex='txt';
+  return {info:info,code:code,ex:ex,n:fm||(ex==='html'?'index.html':'kode.'+ex),file:WEBX.test(ex),l:runLang(ex),c:1};
+}
+function mergeFiles(fs){
+  const h=fs.find(f=>f.ex==='html');
+  if(!h)return [fs.length===1?fs[0]:{n:fs[0].n,ex:fs[0].ex,l:'',c:fs.length,code:fs.map(f=>'/* ===== '+f.n+' ===== */\n'+f.code).join('\n\n')}];
+  let c=h.code,k=1;const rest=[];
+  fs.forEach(f=>{if(f===h)return;
+    const isC=f.ex==='css',isJ=/^jsx?$/.test(f.ex);if(!isC&&!isJ){rest.push(f);return}k++;
+    const q=f.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),
+      re=isC?new RegExp('<link[^>]*href=["\'][^"\']*'+q+'["\'][^>]*>','i'):new RegExp('<script[^>]*src=["\'][^"\']*'+q+'["\'][^>]*>\\s*<\/script>','i'),
+      tag=isC?'<style>\n'+f.code+'\n</style>':'<script>\n'+f.code.replace(/<\/script/gi,'<\\/script')+'\n<\/script>';
+    if(re.test(c))c=c.replace(re,()=>tag);
+    else if(isC)c=/<\/head>/i.test(c)?c.replace(/<\/head>/i,()=>tag+'\n</head>'):tag+'\n'+c;
+    else c=/<\/body>/i.test(c)?c.replace(/<\/body>/i,()=>tag+'\n</body>'):c+'\n'+tag;
+  });
+  return [{n:h.n,ex:'html',l:'html',c:k,code:c}].concat(rest);
+}
+function fileCard(r){
+  const sv=function(d){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'};
+  return '<div class="fc" data-n="'+r.n+'"'+(r.l?' data-lang="'+r.l+'"':'')+'><button class="fo" type="button" data-a="open">'+sv('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>')+'<span class="fn"><b>'+r.n+'</b><small>'+r.ex.toUpperCase()+(r.c>1?' \u00B7 '+r.c+' file digabung':'')+' \u00B7 '+r.code.split('\n').length+' baris</small></span></button><button class="fa" type="button" data-a="copy" aria-label="Salin">'+sv('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>')+'</button>'+(r.l?'<button class="fa" type="button" data-a="run" aria-label="Preview">'+sv('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')+'</button>':'')+'<pre>'+esc(r.code)+'</pre></div>';
+}
+function renderReply(x){
+  const fs=[],out=[];let pv='';
+  x.split('```').forEach((seg,k)=>{
+    if(k%2){const f=fileInfo(seg,pv);if(f.file)fs.push(f);else out.push('<pre>'+esc(f.code)+'</pre>')}
+    else{pv=seg;out.push(esc(seg).replace(/^\n+|\n+$/g,'').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>'))}
+  });
+  if(fs.length)out.push(mergeFiles(fs).map(fileCard).join(''));
+  return out.join('');
+}
 function addHist(t){
   const h=$('#hist');const x=document.createElement('button');x.textContent=t;
   h.querySelectorAll('button.on').forEach(e=>e.classList.remove('on'));x.className='on';const f=h.querySelector('button:not(.pin)');h.insertBefore(x,f);curHist=x;
@@ -1346,8 +1390,8 @@ const cDef={'index.html':`<!DOCTYPE html>
 button{padding:10px 16px;border:0;border-radius:10px;background:#111;color:#fff}`,'script.js':`let n=0;
 const b=document.getElementById("b"),o=document.getElementById("o");
 b.onclick=()=>{o.textContent="Diklik "+(++n)+"x";console.log("klik",n)};`};
-let cF={...cDef},cA='index.html',cPv='index.html',cT,cDk=false,cIn=false,cOn=false;
-try{const sv=JSON.parse(localStorage.getItem('nusa_code2')||'null');if(sv&&sv.f&&Object.keys(sv.f).length){cF=sv.f;cA=cF[sv.a]!==undefined?sv.a:Object.keys(cF)[0]}}catch(_){}
+let cF={},cA='',cPv='',cT,cDk=false,cIn=false,cOn=false;
+try{const sv=JSON.parse(localStorage.getItem('nusa_code2')||'null');if(sv&&sv.f&&Object.keys(sv.f).length&&!(Object.keys(sv.f).length===3&&sv.f['index.html']===cDef['index.html'])){cF=sv.f;cA=cF[sv.a]!==undefined?sv.a:Object.keys(cF)[0]}}catch(_){}
 const cExt=n=>(n.split('.').pop()||'').toLowerCase(),cOk=v=>/^[\w\-. ]+\.[A-Za-z0-9]+$/.test(v);
 const cSave=()=>{if(!cDk)try{localStorage.setItem('nusa_code2',JSON.stringify({f:cF,a:cA}))}catch(_){}};
 const cPut=(n,v)=>cDk?fetch('/api/file?name='+encodeURIComponent(n),{method:'PUT',body:v}).catch(()=>toast('Gagal menyimpan ke server')):Promise.resolve();
@@ -1390,6 +1434,7 @@ async function cImport(items){
   return got.length?got:hit;
 }
 async function cCopy(){
+  if(cF[cA]===undefined)return toast('Belum ada berkas');
   try{await navigator.clipboard.writeText(cF[cA]);toast('Kode disalin')}
   catch(_){cta.focus();cta.select();try{document.execCommand('copy');toast('Kode disalin')}catch(e){toast('Tidak bisa menyalin di sini')}cta.setSelectionRange(0,0)}
 }
@@ -1407,21 +1452,23 @@ function cList(){
   const o=cfl.querySelector('.on');if(o)o.scrollIntoView({inline:'nearest',block:'nearest'});
 }
 function cOpen(n){
-  clearTimeout(cT);if(cF[cA]!==undefined)cPut(cA,cF[cA]);cA=n;if(/^html?$/.test(cExt(n)))cPv=n;
+  clearTimeout(cT);if(cF[cA]!==undefined)cPut(cA,cF[cA]);
+  if(!n||cF[n]===undefined){cA='';cta.readOnly=true;cta.placeholder='Belum ada berkas. Tekan titik tiga di atas, lalu pilih Berkas baru untuk mulai.';cta.value='';cLn();cList();cSave();if(cOn)cStop();cView(false);$('#curl').textContent='Belum ada berkas';return}
+  cA=n;if(/^html?$/.test(cExt(n)))cPv=n;cta.readOnly=false;
   cta.value=cF[n];cta.scrollTop=0;cLn();cList();cSave();
   if(cMob()||cExt(n)==='py'){if(cOn)cStop();cView(false);$('#curl').textContent='Tekan Run untuk menjalankan '+n}else cRun();
 }
 function cAdd(){dialog('Berkas baru','Contoh: app.js, halaman.html, data.json, tes.py','','Buat',v=>{if(!cOk(v))return toast('Nama tidak valid, contoh: app.js');if(cF[v]!==undefined)return toast('Nama sudah dipakai');cF[v]=cTpl(v);cPut(v,cF[v]);cOpen(v)})}
-function cRen(){dialog('Ganti nama berkas','',cA,'Simpan',async v=>{const o=cA;if(v===o)return;if(!cOk(v))return toast('Nama tidak valid');if(cF[v]!==undefined)return toast('Nama sudah dipakai');
+function cRen(){if(!cA)return toast('Belum ada berkas');dialog('Ganti nama berkas','',cA,'Simpan',async v=>{const o=cA;if(v===o)return;if(!cOk(v))return toast('Nama tidak valid');if(cF[v]!==undefined)return toast('Nama sudah dipakai');
   cF=Object.fromEntries(Object.entries(cF).map(([k,x])=>[k===o?v:k,x]));await cPut(v,cF[v]);await cRmF(o);if(cPv===o)cPv=v;cA=v;cList();cSave();toast('Nama diganti')})}
-function cRm(){dialog('Hapus berkas?',cA+' dihapus permanen.',null,'Hapus',async()=>{if(Object.keys(cF).length<2)return toast('Minimal satu berkas');const d=cA;delete cF[d];await cRmF(d);cOpen(Object.keys(cF)[0])},true)}
+function cRm(){if(!cA)return toast('Belum ada berkas');dialog('Hapus berkas?',cA+' dihapus permanen.',null,'Hapus',async()=>{const d=cA;delete cF[d];await cRmF(d);cOpen(Object.keys(cF)[0])},true)}
 async function cDisk(){
   if(!/^https?:$/.test(location.protocol))return;
   try{const r=await fetch('/api/files',{cache:'no-store'}),j=await r.json();if(!r.ok||!j||typeof j!=='object'||Array.isArray(j))return;
     cDk=true;if(Object.keys(j).length)cF=j;else await Promise.all(Object.entries(cF).map(([n,v])=>cPut(n,v)));
-    if(cF[cA]===undefined)cA=Object.keys(cF)[0];cPv=cF['index.html']!==undefined?'index.html':cA;toast('Terhubung ke localhost: folder proyek/')}catch(_){}
+    if(cF[cA]===undefined)cA=Object.keys(cF)[0]||'';cPv=cF['index.html']!==undefined?'index.html':cA;toast('Terhubung ke localhost: folder proyek/')}catch(_){}
 }
-async function openCode(){ceEl.classList.add('show');await cEnsure();cta.value=cF[cA];cLn();cList();cView(false);if(cMob()||cExt(cA)==='py'){cOn=false;cBtn();cco.innerHTML='';$('#curl').textContent='Tekan Run untuk menjalankan '+cA}else cRun()}
+async function openCode(){ceEl.classList.add('show');await cEnsure();if(cF[cA]===undefined){cOpen(Object.keys(cF)[0]);return}cta.readOnly=false;cta.value=cF[cA];cLn();cList();cView(false);if(cMob()||cExt(cA)==='py'){cOn=false;cBtn();cco.innerHTML='';$('#curl').textContent='Tekan Run untuk menjalankan '+cA}else cRun()}
 function cIns(t,back){const a=cta.selectionStart;cta.setRangeText(t,a,cta.selectionEnd,'end');if(back)cta.selectionStart=cta.selectionEnd=a+t.length-back;cta.focus();cta.oninput()}
 cta.oninput=()=>{const n=cA,v=cta.value;cF[n]=v;cLn();cSave();clearTimeout(cT);cT=setTimeout(async()=>{await cPut(n,v);if(cOn&&cExt(n)!=='py')cRun()},400)};
 cta.onscroll=()=>{cln.scrollTop=cta.scrollTop};
@@ -1438,15 +1485,15 @@ addEventListener('message',e=>{
 });
 function cBtn(){$('#cr').innerHTML=(cOn?'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>':'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l12-7z"/></svg>')+'Run'}
 function cStop(){clearTimeout(cT);cOn=false;cBtn();cco.innerHTML='';cif.removeAttribute('src');cif.srcdoc='<body style="margin:0;background:#fff"></body>';$('#curl').textContent='Dihentikan · tekan Run untuk menjalankan';cView(false)}
-$('#cr').onclick=()=>{if(cOn){cStop();return}clearTimeout(cT);cPut(cA,cF[cA]);cRun();cView(true)};
+$('#cr').onclick=()=>{if(cOn){cStop();return}clearTimeout(cT);if(cF[cA]!==undefined)cPut(cA,cF[cA]);cRun();cView(true)};
 const cMn=$('#cm');$('#cmb').onclick=e=>{e.stopPropagation();cMn.classList.toggle('show')};ceEl.addEventListener('click',()=>cMn.classList.remove('show'));
 $('#cma').onclick=cAdd;$('#cmr').onclick=cRen;$('#cmx').onclick=cRm;cBtn();
 function cView(p){ceEl.classList.toggle('v-prev',p);ceEl.classList.toggle('v-code',!p)}
 function cMob(){return innerWidth<=760}
-$('#cx').onclick=()=>{clearTimeout(cT);cPut(cA,cF[cA]);if(cOn)cStop();ceEl.classList.remove('show')};
+$('#cx').onclick=()=>{clearTimeout(cT);if(cF[cA]!==undefined)cPut(cA,cF[cA]);if(cOn)cStop();ceEl.classList.remove('show')};
 $('#cn').onclick=()=>{const e=cExt(cA);if(cDk&&e!=='py'&&e!=='svg'&&cPv){window.open('/proyek/'+encodeURIComponent(cPv),'_blank');return}
   const h=(e==='py'||e==='svg')?runDoc(cF[cA],e):cPv?cBuild(cPv,false):null;if(!h)return toast('Belum ada berkas .html');window.open(URL.createObjectURL(new Blob([h],{type:'text/html'})),'_blank')};
-$('#cd').onclick=()=>dialog('Simpan sebagai','Nama berkas yang akan disimpan',cA,'Simpan',v=>{if(!cOk(v))return toast('Nama tidak valid, contoh: index.html');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([cF[cA]],{type:'text/plain'}));a.download=v;a.click();toast('Disimpan sebagai '+v)});
+$('#cd').onclick=()=>cF[cA]===undefined?toast('Belum ada berkas'):dialog('Simpan sebagai','Nama berkas yang akan disimpan',cA,'Simpan',v=>{if(!cOk(v))return toast('Nama tidak valid, contoh: index.html');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([cF[cA]],{type:'text/plain'}));a.download=v;a.click();toast('Disimpan sebagai '+v)});
 $('#cmc').onclick=cCopy;
 $('#acode').onclick=()=>{const a=curArt;if(!a||a.img)return;am.classList.remove('show');cImport([{name:a.name,content:a.content}]).then(g=>{if(g.length){openCode();toast(g[0]+' dibuka di Code')}else toast('Nama berkas tidak valid')})};
 $('#navcode').onclick=()=>{try{close()}catch(_){}openCode()};
