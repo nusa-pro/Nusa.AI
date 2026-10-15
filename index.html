@@ -659,7 +659,7 @@ function ask(){
   const arm=()=>{clearTimeout(to);to=setTimeout(()=>ctl.abort(),150000)};
   const onVis=()=>{if(document.hidden)clearTimeout(to);else arm()};
   document.addEventListener('visibilitychange',onVis);arm();wlOn();
-  proxyCall(JSON.stringify({messages:buildMsgs(c).map(m=>({role:m.role,content:m.content}))}),ctl.signal)
+  proxyCall(JSON.stringify({stream:true,messages:buildMsgs(c).map(m=>({role:m.role,content:m.content}))}),ctl.signal,o=>{if(o&&o.n!==undefined){arm();const lb=b.querySelector('.think b');if(lb&&o.n>0)lb.textContent='Nusa bekerja... '+o.n.toLocaleString('id-ID')+' karakter'}})
     .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
     .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>{clearTimeout(to);document.removeEventListener('visibilitychange',onVis);wlOff()});
@@ -677,7 +677,7 @@ function waitReady(){return new Promise(res=>{
   if(ok())return res();
   let t;const f=()=>{if(ok())done()},done=()=>{clearTimeout(t);document.removeEventListener('visibilitychange',f);removeEventListener('online',f);res()};
   document.addEventListener('visibilitychange',f);addEventListener('online',f);t=setTimeout(done,30000)})}
-async function proxyCall(body,signal){
+async function proxyCall(body,signal,onProg){
   let last=null,tok='',sv=0;
   try{const ss=await sb.auth.getSession();tok=(ss&&ss.data&&ss.data.session&&ss.data.session.access_token)||''}catch(e){}
   const hd={'Content-Type':'application/json'};
@@ -685,6 +685,16 @@ async function proxyCall(body,signal){
   for(let i=0;i<5;i++){
     try{
       const r=await fetch(PROXY_URL,{method:'POST',headers:hd,body:body,signal:signal});
+      if(r.ok&&/ndjson/i.test(r.headers.get('content-type')||'')){
+        const rd=r.body.getReader(),dc=new TextDecoder();let bf='',fin=null;
+        while(true){const x=await rd.read();if(x.done)break;bf+=dc.decode(x.value,{stream:true});let k;
+          while((k=bf.indexOf('\n'))>=0){const ln=bf.slice(0,k).trim();bf=bf.slice(k+1);if(!ln)continue;let o;try{o=JSON.parse(ln)}catch(e){continue}
+            if(onProg)onProg(o);if(o.reply!==undefined||o.error)fin=o}}
+        if(fin&&fin.reply!==undefined)return fin;
+        if(fin&&fin.error){last=new Error(String(fin.error));last.fatal=true;throw last}
+        last=new Error('Koneksi terputus saat menunggu jawaban, coba lagi.');if(++sv>=2)break;
+        await new Promise(res=>setTimeout(res,600));continue;
+      }
       let d={};try{d=await r.json()}catch(e){}
       if(r.ok){if(d.choices&&d.choices[0]&&d.choices[0].message)d.reply=d.choices[0].message.content||'';return d}
       last=new Error(typeof d.error==='string'?d.error:((d.error&&d.error.message)||('HTTP '+r.status)));
@@ -1184,7 +1194,7 @@ function styleNote(c){
 }
 const WEBQ=/(\bweb(site)?\b|situs|landing|html|css|desain|\bui\b|\bux\b|frontend|portofolio|portfolio|dashboard|halaman|template|\bindex\b|toko online|top ?up)/i;
 const DESIGN_GUIDE=['[PANDUAN DESAIN WEB, wajib diikuti saat membuat tampilan web:',
-'FORMAT: jawab dengan 2 sampai 3 kalimat penjelasan, lalu SATU blok kode ```html berisi file index.html lengkap (CSS di dalam <style>, JS di dalam <script>). Kode harus selesai sampai </html>, jangan terpotong: hemat panjang, tanpa komentar panjang, tanpa gambar base64, maksimal sekitar 400 baris. Jangan pakai emoji atau simbol hiasan di teks jawaban.',
+'FORMAT: jawab dengan 2 sampai 3 kalimat penjelasan, lalu SATU blok kode ```html berisi file index.html lengkap (CSS di dalam <style>, JS di dalam <script>). Kode harus selesai sampai </html>, jangan terpotong: utamakan kode yang benar dan lengkap, tanpa gambar base64, boleh sampai sekitar 600 baris. Jangan pakai emoji atau simbol hiasan di teks jawaban.',
 'TAMPILAN: mobile-first dan responsif (meta viewport, flex atau grid, ukuran dengan clamp). Pakai variabel CSS untuk satu palet 2 sampai 3 warna dengan kontras teks yang jelas terbaca. Pilih satu pasangan font dari Google Fonts (judul dan isi) dengan font cadangan. Spasi konsisten (kelipatan 8px), sudut membulat dan bayangan yang halus. Hindari gradien biru-ungu yang pasaran dan hindari semua teks rata tengah, variasikan tata letak.',
 'STRUKTUR: header atau navbar yang rapi, hero dengan judul kuat dan tombol ajakan yang jelas, bagian utama berupa kartu dalam grid, lalu bagian pelengkap sesuai topik (harga, testimoni, FAQ, kontak) dan footer. Isi dengan konten nyata dalam bahasa Indonesia sesuai topik, bukan lorem ipsum.',
 'DETAIL: tombol dan tautan punya efek hover, active, dan focus; transisi halus sekitar 0,2 detik dan hormati prefers-reduced-motion. Ikon pakai SVG inline sederhana, bukan emoji dan bukan gambar luar. Tautan antar bagian atau halaman pakai #id. Semua tombol harus benar-benar berfungsi dengan JavaScript sederhana, dan form jangan mengirim ke server.',
