@@ -368,6 +368,7 @@ button:active{opacity:.7;transform:scale(.96)}
 /* beranda: judul pakai font serif ala Claude */
 .hero h1{font-family:"Newsreader","Tiempos Headline",Georgia,"Times New Roman",serif;font-weight:400;letter-spacing:-.01em;line-height:1.2}
 .hero p:empty{display:none}
+.bub .hd{display:block;font-weight:700;margin:12px 0 2px}.bub .hd:first-child{margin-top:0}
 /* desktop: saat obrolan kosong, kolom chat di tengah layar */
 @media (min-width:761px){
   body[data-view="chat"] .main:has(.hero){position:relative;justify-content:center}
@@ -526,7 +527,7 @@ setTimeout(end,rm?900:6000);})();
       </div>
   </main>
 </div>
-<div id="ce" class="v-code"><div class="ch"><b>Code</b><button class="cb" id="cr"></button><button class="cb" id="cmb" aria-label="Menu berkas"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><button class="cb" id="cx" aria-label="Tutup">✕</button><div class="cm" id="cm"><button id="cmc">Salin kode</button><button id="cd">Simpan sebagai…</button><button id="cma">Berkas baru</button><button id="cmr">Ganti nama</button><button id="cn">Buka di tab baru</button><button id="cmx" class="del">Hapus berkas</button></div></div><div class="fl" id="fl"></div><div class="bd"><div class="ec"><div class="ed"><pre id="cln"></pre><textarea id="cta" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea></div><div class="sy" id="csy"></div></div><div class="pv"><small id="curl"></small><iframe id="cif" sandbox="allow-scripts allow-modals allow-forms"></iframe><div id="cco"></div></div></div></div>
+<div id="ce" class="v-code"><div class="ch"><b>Code</b><button class="cb" id="cr"></button><button class="cb" id="cmb" aria-label="Menu berkas"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><button class="cb" id="cx" aria-label="Tutup">✕</button><input type="file" id="cup" multiple accept="text/*,.html,.htm,.css,.js,.mjs,.json,.py,.svg,.md,.ts,.tsx,.jsx,.xml,.csv,.php,.java,.kt,.go,.rs,.sql,.sh,.yml,.yaml,.txt" style="display:none"><div class="cm" id="cm"><button id="cmu">Unggah berkas</button><button id="cmc">Salin kode</button><button id="cd">Simpan sebagai…</button><button id="cma">Berkas baru</button><button id="cmr">Ganti nama</button><button id="cn">Buka di tab baru</button><button id="cmx" class="del">Hapus berkas</button></div></div><div class="fl" id="fl"></div><div class="bd"><div class="ec"><div class="ed"><pre id="cln"></pre><textarea id="cta" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea></div><div class="sy" id="csy"></div></div><div class="pv"><small id="curl"></small><iframe id="cif" sandbox="allow-scripts allow-modals allow-forms"></iframe><div id="cco"></div></div></div></div>
 <script>
 const $=s=>document.querySelector(s);
 const chat=$('#chat'),inp=$('#in'),send=$('#send'),sc=$('#scroll');
@@ -794,13 +795,23 @@ function fileCard(r){
 }
 function renderReply(x){
   const fs=[],o=[];let pv='';
-  const tx=t=>esc(t).replace(/^\n+|\n+$/g,'').replace(/^#{1,6}[ \t]*(.+)$/gm,'<b>$1</b>').replace(/^&gt;[ \t]?/gm,'').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>');
   x.split('```').forEach((seg,k,ar)=>{
     if(k%2){const f=fileInfo(seg,pv);f.cut=k===ar.length-1&&ar.length%2===0;if(f.file)fs.push(f);else o.push({h:'<pre>'+esc(f.code)+'</pre>'})}
-    else{pv=seg;const h=tx(seg);if(h)o.push({h:h,t:1})}
+    else{pv=seg;o.push({s:seg,t:1})}
   });
-  if(fs.length)o.push({h:mergeFiles(fs).map(fileCard).join('')});
-  return o.map((q,i)=>(i&&q.t&&o[i-1].t?'\n':'')+q.h).join('');
+  const clean=fs.length>0,names=fs.map(f=>f.n.split('/').pop().toLowerCase());
+  const EMO=/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{20E3}\u{200D}]/gu;
+  const tx=t=>{
+    if(clean)t=t.replace(EMO,'').split('\n').filter(l=>{
+      if(/^\s*([-*_])\1{2,}\s*$/.test(l))return false;
+      if(/^\s*#{1,6}\s/.test(l)){const lw=l.toLowerCase();if(names.some(n=>lw.indexOf(n)>=0))return false}
+      return true}).map(l=>l.replace(/^[ \t]*[-*\u2022][ \t]+/,'').replace(/[ \t]+$/,'')).join('\n').replace(/\n{3,}/g,'\n\n');
+    return esc(t).replace(/^\n+|\n+$/g,'').replace(/^#{1,6}[ \t]*(.+)(\n|$)/gm,'<b class="hd">$1</b>').replace(/^&gt;[ \t]?/gm,'').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>');
+  };
+  const q=[];
+  o.forEach(p=>{if(p.t){const h=tx(p.s);if(h)q.push({h:h,t:1})}else q.push(p)});
+  if(fs.length)q.push({h:mergeFiles(fs).map(fileCard).join('')});
+  return q.map((p,i)=>(i&&p.t&&q[i-1].t&&!/class="hd">[^<]*<\/b>$/.test(q[i-1].h)?'\n':'')+p.h).join('');
 }
 function addHist(t){
   const h=$('#hist');const x=document.createElement('button');x.textContent=t;
@@ -1493,7 +1504,7 @@ function cList(){
 }
 function cOpen(n){
   clearTimeout(cT);if(cF[cA]!==undefined)cPut(cA,cF[cA]);
-  if(!n||cF[n]===undefined){cA='';cta.readOnly=true;cta.placeholder='Belum ada berkas. Tekan titik tiga di atas, lalu pilih Berkas baru untuk mulai.';cta.value='';cLn();cList();cSave();if(cOn)cStop();cView(false);$('#curl').textContent='Belum ada berkas';return}
+  if(!n||cF[n]===undefined){cA='';cta.readOnly=true;cta.placeholder='Belum ada berkas. Tekan titik tiga di atas, lalu pilih Unggah berkas atau Berkas baru.';cta.value='';cLn();cList();cSave();if(cOn)cStop();cView(false);$('#curl').textContent='Belum ada berkas';return}
   cA=n;if(/^html?$/.test(cExt(n)))cPv=n;cta.readOnly=false;
   cta.value=cF[n];cta.scrollTop=0;cLn();cList();cSave();
   if(cMob()||cExt(n)==='py'){if(cOn)cStop();cView(false);$('#curl').textContent='Tekan Run untuk menjalankan '+n}else cRun();
@@ -1527,6 +1538,21 @@ function cBtn(){$('#cr').innerHTML=(cOn?'<svg width="16" height="16" viewBox="0 
 function cStop(){clearTimeout(cT);cOn=false;cBtn();cco.innerHTML='';cif.removeAttribute('src');cif.srcdoc='<body style="margin:0;background:#fff"></body>';$('#curl').textContent='Dihentikan · tekan Run untuk menjalankan';cView(false)}
 $('#cr').onclick=()=>{if(cOn){cStop();return}clearTimeout(cT);if(cF[cA]!==undefined)cPut(cA,cF[cA]);cRun();cView(true)};
 const cMn=$('#cm');$('#cmb').onclick=e=>{e.stopPropagation();cMn.classList.toggle('show')};ceEl.addEventListener('click',()=>cMn.classList.remove('show'));
+const cUp=$('#cup');
+function cUpload(){cUp.value='';cUp.click()}
+cUp.onchange=async()=>{
+  const fl=Array.from(cUp.files||[]),items=[],bad=[];
+  for(const f of fl){
+    if(f.size>5242880){bad.push(f.name+' (maks 5 MB)');continue}
+    let t='';try{t=await f.text()}catch(_){bad.push(f.name);continue}
+    if(t.indexOf('\u0000')>=0){bad.push(f.name+' (bukan teks)');continue}
+    items.push({name:f.name,content:t});
+  }
+  cUp.value='';
+  if(items.length){const g=await cImport(items);if(g.length){cList();cOpen(cA);toast(g.length>1?g.length+' berkas diunggah':g[0]+' diunggah')}else bad.push('nama berkas tidak valid')}
+  if(bad.length)setTimeout(()=>toast('Tidak bisa diunggah: '+bad.join(', ')),items.length?1800:0);
+};
+$('#cmu').onclick=cUpload;
 $('#cma').onclick=cAdd;$('#cmr').onclick=cRen;$('#cmx').onclick=cRm;cBtn();
 function cView(p){ceEl.classList.toggle('v-prev',p);ceEl.classList.toggle('v-code',!p)}
 function cMob(){return innerWidth<=760}
