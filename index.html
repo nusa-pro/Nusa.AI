@@ -202,6 +202,20 @@ textarea,input,.bub{-webkit-user-select:text;user-select:text}
 .pop .tile{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--raise);border-radius:16px;padding:16px 6px;text-align:center}
 .tile i{width:46px;height:46px;border-radius:50%;background:#26262C;display:grid;place-items:center}
 .sh{color:var(--muted);font-size:14px;margin:18px 4px 4px}
+.mpill{display:flex;align-items:center;gap:4px;height:36px;padding:0 12px;border:0;border-radius:18px;background:var(--raise);color:var(--ink);font-size:14px;font-weight:600;min-width:0;max-width:52%;flex:0 1 auto}
+.mpill #mdn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mpill svg{flex:none;opacity:.6}
+.pop .mh{display:flex;align-items:center;justify-content:center;position:relative;margin:4px 0 14px;min-height:36px}
+.pop .mh b{font-size:17px}
+.pop .mh .mx{position:absolute;left:0;top:0;width:36px;height:36px;padding:0;display:grid;place-items:center;font-size:18px;color:var(--ink);border-radius:50%}
+.pop .mlist{background:var(--raise);border-radius:18px;overflow:hidden}
+.pop .mi{display:flex;align-items:center;gap:10px;width:100%;padding:14px 16px;border-radius:0;background:none;border-top:1px solid rgba(255,255,255,.05)}
+.pop .mi:first-child{border-top:0}
+.pop .mi .mt{flex:1;min-width:0}
+.pop .mi .mn{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:600}
+.pop .mi .mn i{font-style:normal;font-size:12px;font-weight:600;color:#9DB4E8;background:#1B2438;border-radius:10px;padding:2px 8px}
+.pop .mi small{display:block;color:var(--muted);font-size:14px;margin-top:2px}
+.pop .mi svg{flex:none}
 .atts{display:flex;gap:8px;overflow-x:auto;padding:4px 4px 0}
 .atts:empty{display:none}
 .uimgs{display:flex;flex-wrap:wrap;gap:6px;margin:-4px -6px 6px}.uimgs:last-child{margin-bottom:-4px}
@@ -524,7 +538,7 @@ setTimeout(end,rm?900:6000);})();
       <small id="lmsg"></small>
     </div></div>
     <div class="comp">
-      <div class="box"><div class="psc" id="psc"></div><div class="pop" id="pop"></div>
+      <div class="box"><div class="psc" id="psc"></div><div class="pop" id="pop"></div><div class="psc" id="msc"></div><div class="pop" id="msheet" role="dialog" aria-label="Pilih model"></div>
         <input type="file" id="fcam" accept="image/*" capture="environment" style="display:none">
         <input type="file" id="fpho" accept="image/*" multiple style="display:none">
         <input type="file" id="ffil" multiple style="display:none">
@@ -532,6 +546,7 @@ setTimeout(end,rm?900:6000);})();
         <textarea id="in" rows="1" placeholder="Chat dengan Nusa…" aria-label="Pesan"></textarea>
         <div class="row">
           <button class="ic plus" id="plus" aria-label="Contoh pertanyaan" aria-expanded="false">+</button>
+          <button class="mpill" id="mdl" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Pilih model AI"><span id="mdn"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
           
           
           <button class="ic mic" id="mic" aria-label="Rekam voice note"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="tm" id="tm"></span></button>
@@ -547,10 +562,10 @@ const chat=$('#chat'),inp=$('#in'),send=$('#send'),sc=$('#scroll');
 const SEND_HTML=send.innerHTML,STOP_HTML='<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor"/></svg>';
 let activeRun=null;
 const starters=[
- ['Jelaskan konsep','Apa itu inflasi, pakai contoh harga bakso?'],
- ['Bantu menulis kode','Buat fungsi Python untuk validasi NIK'],
- ['Rangkum teks','Ringkas artikel yang saya tempel jadi 5 poin'],
- ['Rencanakan sesuatu','Susun jadwal belajar 4 minggu untuk UTBK']
+ ['Dasar-dasar coding','Jelaskan variabel, tipe data, dan kondisi untuk pemula, pakai contoh sederhana'],
+ ['Cara kerja program','Bagaimana komputer menjalankan kode, dari ditulis sampai hasilnya muncul?'],
+ ['Cara berpikir programmer','Ajari cara memecah masalah jadi langkah kecil sebelum mulai menulis kode'],
+ ['Belajar coding dari nol','Susun roadmap 4 minggu belajar dasar coding untuk pemula']
 ];
 let busy=false,n=0;
 let cur=null,convs=[];
@@ -684,7 +699,7 @@ function ask(){
   const onVis=()=>{if(document.hidden)clearTimeout(to);else arm()};
   document.addEventListener('visibilitychange',onVis);arm();wlOn();
   const heavy=isHeavy(t,hasAtt);b.dataset.hv=heavy?'1':'0';if(heavy)nusaRun(b,heavy);
-  proxyCall(JSON.stringify({stream:heavy,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined)arm()})
+  proxyCall(JSON.stringify({stream:heavy,model:modelPick,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined)arm()})
     .then(d=>nusaFinal(b,heavy).then(()=>d)).then(d=>{if(run.stopped)return;const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}run.committed=true;syncSend();c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
     .catch(e=>{if(run.stopped)return;if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>{clearTimeout(to);document.removeEventListener('visibilitychange',onVis);wlOff()});
@@ -1006,6 +1021,33 @@ function renderPop(){
 }
 plus.onclick=e=>{e.stopPropagation();const o=pop.classList.toggle('show');$('#psc').classList.toggle('show',o);plus.setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{if(!e.target.closest('#pop'))closePop()});
+/* ---- pilih model AI (tombol di baris keyboard) ---- */
+/* id harus sama dengan kunci PICKS di Worker */
+const MODELS=[
+  {id:'auto',n:'Nusa Auto',b:'NVIDIA',d:'Otomatis: Nemotron untuk chat, kode, dan web'},
+  {id:'deepseek',n:'DeepSeek V4',b:'DeepSeek',d:'Untuk kode dan penalaran'},
+  {id:'glm',n:'GLM 5.3',b:'Z.ai',d:'Alternatif untuk kode dan obrolan'},
+  {id:'gptoss',n:'GPT-OSS 120B',b:'OpenAI',d:'Model open-weight untuk obrolan umum'}
+];
+let modelPick=(()=>{try{const v=localStorage.getItem('nusa_model');return MODELS.some(m=>m.id===v)?v:'auto'}catch(e){return 'auto'}})();
+const msh=$('#msheet'),msc=$('#msc'),mdl=$('#mdl');
+function paintMdl(){const m=MODELS.find(x=>x.id===modelPick)||MODELS[0];$('#mdn').textContent=m.n}
+function closeMsh(){msh.classList.remove('show');msc.classList.remove('show');mdl.setAttribute('aria-expanded','false')}
+function renderMsh(){
+  const ck='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B9DF5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  msh.innerHTML='<div class="mh"><button class="mx" id="mshx" type="button" aria-label="Tutup">✕</button><b>Pilih model</b></div><div class="mlist" role="radiogroup" aria-label="Model AI"></div>';
+  const l=msh.querySelector('.mlist');
+  MODELS.forEach(m=>{
+    const b=document.createElement('button');b.type='button';b.className='mi';b.setAttribute('role','radio');b.setAttribute('aria-checked',String(m.id===modelPick));
+    b.innerHTML='<div class="mt"><div class="mn"><div></div><i></i></div><small></small></div>'+(m.id===modelPick?ck:'');
+    b.querySelector('.mn div').textContent=m.n;b.querySelector('.mn i').textContent=m.b;b.querySelector('small').textContent=m.d;
+    b.onclick=()=>{modelPick=m.id;try{localStorage.setItem('nusa_model',modelPick)}catch(e){}paintMdl();closeMsh()};
+    l.appendChild(b)});
+  $('#mshx').onclick=closeMsh;
+}
+mdl.onclick=e=>{e.stopPropagation();closePop();renderMsh();msh.classList.add('show');msc.classList.add('show');mdl.setAttribute('aria-expanded','true')};
+msc.onclick=closeMsh;
+paintMdl();
 function setView(v){
   view=v;document.body.dataset.view=v;closePop();
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
