@@ -590,6 +590,9 @@ function openConv(id){
       if(!m.err){b.insertAdjacentHTML('beforeend',ACTS);b.querySelector('.acts').firstChild.onclick=e=>{try{navigator.clipboard.writeText(m.t)}catch(_){};e.target.textContent='Tersalin'}}}
   });
   renderHist();renderPop();grow();close();sc.scrollTop=sc.scrollHeight;
+  {const lq=c.msgs[c.msgs.length-1];
+   if(lq&&lq.r==='u'&&typeof lq.t==='string'&&lq.t.indexOf('Lampiran:')<0&&PROXY_URL&&!busy&&Date.now()-(c.ts||0)<900000&&chat.lastElementChild){
+     c.msgs.pop();saveConvs();chat.lastElementChild.remove();n=Math.max(0,n-1);inp.value=lq.t;grow();toast('Jawaban sempat terputus, mengirim ulang');setTimeout(ask,400)}}
 }
 const MODES={
  chat:{h:'Ayo, kita mulai dari mana',p:'',ph:'Chat dengan Nusa…',ph2:'Balas chat Nusa…',t:'Obrolan baru'}
@@ -652,19 +655,34 @@ function ask(){
     return;
   }
   
-  const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),90000);
+  const ctl=new AbortController();let to;
+  const arm=()=>{clearTimeout(to);to=setTimeout(()=>ctl.abort(),150000)};
+  const onVis=()=>{if(document.hidden)clearTimeout(to);else arm()};
+  document.addEventListener('visibilitychange',onVis);arm();wlOn();
   proxyCall(JSON.stringify({messages:buildMsgs(c).map(m=>({role:m.role,content:m.content}))}),ctl.signal)
     .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
     .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
-    .finally(()=>clearTimeout(to));
+    .finally(()=>{clearTimeout(to);document.removeEventListener('visibilitychange',onVis);wlOff()});
 }
 /* panggil Worker; ulangi otomatis (maks 3x) kalau server sibuk/error sementara */
+/* tahan layar tetap menyala selama AI menjawab (kalau browser mendukung) */
+let _wl=null,_wlN=0;
+async function wlGet(){try{if(_wlN&&!_wl&&navigator.wakeLock&&!document.hidden){_wl=await navigator.wakeLock.request('screen');_wl.addEventListener('release',()=>{_wl=null})}}catch(e){_wl=null}}
+function wlOn(){_wlN++;wlGet()}
+function wlOff(){_wlN=Math.max(0,_wlN-1);if(!_wlN&&_wl){try{_wl.release()}catch(e){}_wl=null}}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)wlGet()});
+/* tunggu sampai halaman terlihat lagi dan internet tersambung (maks 30 detik) */
+function waitReady(){return new Promise(res=>{
+  const ok=()=>!document.hidden&&navigator.onLine;
+  if(ok())return res();
+  let t;const f=()=>{if(ok())done()},done=()=>{clearTimeout(t);document.removeEventListener('visibilitychange',f);removeEventListener('online',f);res()};
+  document.addEventListener('visibilitychange',f);addEventListener('online',f);t=setTimeout(done,30000)})}
 async function proxyCall(body,signal){
-  let last=null,tok='';
+  let last=null,tok='',sv=0;
   try{const ss=await sb.auth.getSession();tok=(ss&&ss.data&&ss.data.session&&ss.data.session.access_token)||''}catch(e){}
   const hd={'Content-Type':'application/json'};
   if(tok)hd['Authorization']='Bearer '+tok;
-  for(let i=0;i<3;i++){
+  for(let i=0;i<5;i++){
     try{
       const r=await fetch(PROXY_URL,{method:'POST',headers:hd,body:body,signal:signal});
       let d={};try{d=await r.json()}catch(e){}
@@ -672,10 +690,11 @@ async function proxyCall(body,signal){
       last=new Error(typeof d.error==='string'?d.error:((d.error&&d.error.message)||('HTTP '+r.status)));
       if(d.code==='guest_limit'){last.fatal=true;last.limit=true;throw last}
       if(![429,500,502,503,504,529].includes(r.status)&&!/high demand|overload|try again/i.test(last.message)){last.fatal=true;throw last}
-    }catch(e){if(e.name==='AbortError'||e.fatal)throw e;last=e;if(i===2)break}
+      if(++sv>=3)break;
+    }catch(e){if(e.name==='AbortError'||e.fatal)throw e;last=e;const net=e instanceof TypeError;if(i>=(net?4:2))break;if(net)await waitReady()}
     await new Promise(res=>setTimeout(res,600*(i+1)));
   }
-  throw new Error(last&&last.message&&!/^HTTP (429|5\d\d)$/.test(last.message)?last.message:'Server AI sedang sibuk. Coba lagi sebentar lagi.');
+  throw new Error(last instanceof TypeError?'Koneksi terputus, cek internet lalu coba lagi.':last&&last.message&&!/^HTTP (429|5\d\d)$/.test(last.message)?last.message:'Server AI sedang sibuk. Coba lagi sebentar lagi.');
 }
 const IMG_URL='https://nusa-picture.pinnshiki.workers.dev/'; // Worker khusus gambar
 const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
