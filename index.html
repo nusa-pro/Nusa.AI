@@ -99,7 +99,8 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 .ring:nth-child(3) .orb{animation-duration:2.4s}
 .orb i{position:absolute;left:50%;top:-2px;width:3px;height:3px;margin-left:-1.5px;border-radius:50%;background:#fff;box-shadow:none}
 .core{position:absolute;display:block;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#fff;box-shadow:none;animation:pulse 1.4s ease-in-out infinite}
-.think b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100vw - 130px);transition:opacity .2s;font-weight:400;font-size:14px;background:linear-gradient(90deg,#6b7280 0%,#F2F2F5 50%,#6b7280 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:shine 1.8s linear infinite}
+.think b{display:block;min-height:1.45em;white-space:nowrap;overflow:hidden;text-overflow:clip;max-width:calc(100vw - 130px);font:400 13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#C9CCD3;letter-spacing:.01em}
+.think b::after{content:'';display:inline-block;width:7px;height:1.05em;margin-left:3px;vertical-align:-.15em;background:#F2F2F5;animation:caret .9s steps(1) infinite}
 @keyframes shine{from{background-position:200% 0}to{background-position:-200% 0}}
 @keyframes atomspin{from{transform:rotateX(18deg) rotateY(0)}to{transform:rotateX(18deg) rotateY(360deg)}}
 @keyframes orbit{to{transform:rotateZ(360deg)}}
@@ -639,7 +640,7 @@ function ask(){
   if(!user){guestBump();const sisa=GUEST_LIMIT-guestUsed();if(sisa<=2)setTimeout(()=>toast(sisa>0?'Sisa '+sisa+' chat gratis. Masuk untuk tanpa batas':'Ini chat gratis terakhirmu. Masuk untuk tanpa batas'),300)}
   if(!user&&!window._gw){window._gw=1;setTimeout(()=>toast('Kamu belum masuk, obrolan ini tidak akan disimpan'),500)}
   n++;add('u',shown,thumbs);window._sent=att.slice();att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
-  const b=add('b','<span class="think"><span class="atom" aria-label="Memuat"><span class="atom-in"><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="core"></span></span></span><b>Nusa started..</b></span>');
+  const b=add('b','<span class="think"><span class="atom" aria-label="Memuat"><span class="atom-in"><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="core"></span></span></span><b></b></span>');nusaRun(b);
   const model=$('#model').value;
   const tg=webOn?['Pencarian web']:[];
   const acts='<div class="acts"><button>Salin</button><button>Ulangi</button><button>Suka</button></div>';
@@ -671,7 +672,7 @@ function ask(){
   const arm=()=>{clearTimeout(to);to=setTimeout(()=>ctl.abort(),150000)};
   const onVis=()=>{if(document.hidden)clearTimeout(to);else arm()};
   document.addEventListener('visibilitychange',onVis);arm();wlOn();
-  const heavy=isHeavy(t,hasAtt);b.dataset.hv=heavy?'1':'0';if(heavy)nusaRun(b);
+  const heavy=isHeavy(t,hasAtt);b.dataset.hv=heavy?'1':'0';{const th=b.querySelector('.think');if(th)th._hv=heavy}
   proxyCall(JSON.stringify({stream:heavy,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined)arm()})
     .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
     .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
@@ -745,14 +746,26 @@ function isHeavy(t,hasFiles){
 function nusaRun(b){
   const t=b.querySelector('.think');if(!t||t._rot)return;
   const lb=t.querySelector('b');if(!lb)return;
-  t._rot=1;let prev=-1;
-  const pick=()=>{let k;do{k=Math.floor(Math.random()*RUN_CMDS.length)}while(k===prev&&RUN_CMDS.length>1);prev=k;return RUN_CMDS[k]};
-  lb.textContent=pick();
-  const tk=setInterval(()=>{
-    if(!t.isConnected){clearInterval(tk);return}
-    lb.style.opacity='0';
-    setTimeout(()=>{if(t.isConnected){lb.textContent=pick();lb.style.opacity='1'}},200);
-  },1800);
+  t._rot=1;
+  const alive=()=>t.isConnected;
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  const typ=async s=>{for(let i=1;i<=s.length&&alive();i++){lb.textContent=s.slice(0,i);await wait(26+Math.random()*44)}};
+  const del=async()=>{let s=lb.textContent;while(s.length&&alive()){s=s.slice(0,-1);lb.textContent=s;await wait(12)}};
+  (async()=>{
+    /* tahap 1: menunggu balasan */
+    await typ('Waiting for reply...');
+    if(!t._hv)return; /* permintaan ringan: berhenti di sini, tanpa teks acak */
+    /* tahap 2: Nusa working */
+    await wait(1500);await del();await wait(220);
+    await typ('Nusa working');await wait(1200);
+    /* tahap 3: teks acak, diketik lalu dihapus, satu baris */
+    let prev=-1;
+    while(alive()){
+      await del();await wait(180);
+      let k;do{k=Math.floor(Math.random()*RUN_CMDS.length)}while(k===prev&&RUN_CMDS.length>1);prev=k;
+      await typ(RUN_CMDS[k]);await wait(1000+Math.random()*800);
+    }
+  })();
 }
 function typeReply(b,text,fin){
   if(b.dataset.hv!=='1'||text.indexOf('```')>=0||matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
