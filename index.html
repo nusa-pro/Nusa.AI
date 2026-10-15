@@ -1139,7 +1139,7 @@ function imgPrompt(t){
 }
 const IMGREF=/(?:belum|tidak|nggak|gak)\s+(?:bisa|dapat|mampu)\s+(?:\w+\s+){0,2}(?:membuat|menghasilkan|menampilkan|menggambar|bikin)\b|asisten teks|text-based/i;
 const shouldImg=(t,a)=>t.length<=200&&new RegExp('\\b('+IMGN+')\\b','i').test(t)&&IMGREF.test(a);
-function shrink(src,mx,q){return new Promise(ok=>{const im=new Image();im.onload=()=>{const k=Math.min(1,(mx||1024)/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',q||.82))};im.onerror=()=>ok(src);im.src=src})}
+function shrink(src,mx,q){return new Promise(ok=>{const im=new Image();im.onload=()=>{const k=Math.min(1,(mx||1024)/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',q||.75))};im.onerror=()=>ok(src);im.src=src})}
 async function genImage(prompt,signal){
   const r=await fetch(IMG_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'image',prompt:prompt}),signal:signal}).catch(e=>{if(e.name==='AbortError')throw e;throw new Error('Worker gambar tidak terjangkau. Cek nama nusa-picture dan deploy-nya.')});
   const d=await r.json().catch(()=>({}));
