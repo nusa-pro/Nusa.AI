@@ -527,7 +527,7 @@ setTimeout(end,rm?900:6000);})();
       </div>
   </main>
 </div>
-<div id="ce" class="v-code"><div class="ch"><b>Code</b><button class="cb" id="cr"></button><button class="cb" id="cmb" aria-label="Menu berkas"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><button class="cb" id="cx" aria-label="Tutup">✕</button><input type="file" id="cup" multiple accept="text/*,.html,.htm,.css,.js,.mjs,.json,.py,.svg,.md,.ts,.tsx,.jsx,.xml,.csv,.php,.java,.kt,.go,.rs,.sql,.sh,.yml,.yaml,.txt" style="display:none"><div class="cm" id="cm"><button id="cmu">Unggah berkas</button><button id="cmc">Salin kode</button><button id="cd">Simpan sebagai…</button><button id="cma">Berkas baru</button><button id="cmr">Ganti nama</button><button id="cn">Buka di tab baru</button><button id="cmx" class="del">Hapus berkas</button></div></div><div class="fl" id="fl"></div><div class="bd"><div class="ec"><div class="ed"><pre id="cln"></pre><textarea id="cta" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea></div><div class="sy" id="csy"></div></div><div class="pv"><small id="curl"></small><iframe id="cif" sandbox="allow-scripts allow-modals allow-forms"></iframe><div id="cco"></div></div></div></div>
+<div id="ce" class="v-code"><div class="ch"><b>Code</b><button class="cb" id="cr"></button><button class="cb" id="cmb" aria-label="Menu berkas"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><button class="cb" id="cx" aria-label="Tutup">✕</button><input type="file" id="cup" multiple accept="text/*,.html,.htm,.css,.js,.mjs,.json,.py,.svg,.md,.ts,.tsx,.jsx,.xml,.csv,.php,.java,.kt,.go,.rs,.sql,.sh,.yml,.yaml,.txt" style="display:none"><div class="cm" id="cm"><button id="cmu">Unggah berkas</button><button id="cmc">Salin kode</button><button id="cfx">Perbaiki dengan AI</button><button id="cd">Simpan sebagai…</button><button id="cma">Berkas baru</button><button id="cmr">Ganti nama</button><button id="cn">Buka di tab baru</button><button id="cmx" class="del">Hapus berkas</button></div></div><div class="fl" id="fl"></div><div class="bd"><div class="ec"><div class="ed"><pre id="cln"></pre><textarea id="cta" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea></div><div class="sy" id="csy"></div></div><div class="pv"><small id="curl"></small><iframe id="cif" sandbox="allow-scripts allow-modals allow-forms"></iframe><div id="cco"></div></div></div></div>
 <script>
 const $=s=>document.querySelector(s);
 const chat=$('#chat'),inp=$('#in'),send=$('#send'),sc=$('#scroll');
@@ -1471,8 +1471,8 @@ function cBuild(name,hook){
   let h=cF[name];
   const ESM=/^\s*(import\s+[\w{*"']|export\s+(default|const|let|var|function|class|async|\{|\*))/m;
   const hasMap=/<script[^>]*type=["']importmap["']/i.test(h);
-  h=h.replace(/<link\b[^>]*href=["']([^"']+\.css)["'][^>]*>/ig,(m,f)=>{const c=cF[f.split('/').pop()];return c!==undefined?'<style>'+c+'</style>':m});
-  h=h.replace(/<script\b([^>]*?)src=["']([^"']+\.js)["']([^>]*)>\s*<\/script>/ig,(m,x,f,y)=>{const c=cF[f.split('/').pop()];if(c===undefined)return m;let a=(x+y).replace(/\s+$/,'');if(!/\btype\s*=/i.test(a)&&ESM.test(c))a+=' type="module"';return '<script'+a+'>'+c.replace(/<\/script/gi,'<\\/script')+'<\/script>'});
+  h=h.replace(/<link\b[^>]*href=["']([^"']+\.css)["'][^>]*>/ig,(m,f)=>{if(/^(https?:)?\/\//i.test(f))return m;const c=cF[f.split('/').pop()];return c!==undefined?'<style>'+c+'</style>':m});
+  h=h.replace(/<script\b([^>]*?)src=["']([^"']+\.js)["']([^>]*)>\s*<\/script>/ig,(m,x,f,y)=>{if(/^(https?:)?\/\//i.test(f))return m;const c=cF[f.split('/').pop()];if(c===undefined)return m;let a=(x+y).replace(/\s+$/,'');if(!/\btype\s*=/i.test(a)&&ESM.test(c))a+=' type="module"';return '<script'+a+'>'+c.replace(/<\/script/gi,'<\\/script')+'<\/script>'});
   h=h.replace(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/ig,(m,a,c)=>{a=a||'';if(/\bsrc\s*=/i.test(a)||/\btype\s*=/i.test(a)||!ESM.test(c))return m;return '<script'+a+' type="module">'+c+'<\/script>'});
   let map='';
   if(!hasMap){const im={};Object.keys(cF).forEach(n=>{if(cExt(n)!=='js'&&cExt(n)!=='mjs')return;const u='data:text/javascript;charset=utf-8,'+encodeURIComponent(cF[n]);const st=n.replace(/\.m?js$/i,'');[n,'./'+n,'/'+n,st,st.toLowerCase()].forEach(k=>{im[k]=u})});if(Object.keys(im).length)map='<script type="importmap">'+JSON.stringify({imports:im}).replace(/</g,'\\u003c')+'<\/script>'}
@@ -1587,6 +1587,20 @@ $('#cn').onclick=()=>{const e=cExt(cA);if(cDk&&e!=='py'&&e!=='svg'&&cPv){window.
   const h=(e==='py'||e==='svg')?runDoc(cF[cA],e):cPv?cBuild(cPv,false):null;if(!h)return toast('Belum ada berkas .html');window.open(URL.createObjectURL(new Blob([h],{type:'text/html'})),'_blank')};
 $('#cd').onclick=()=>cF[cA]===undefined?toast('Belum ada berkas'):dialog('Simpan sebagai','Nama berkas yang akan disimpan',cA,'Simpan',v=>{if(!cOk(v))return toast('Nama tidak valid, contoh: index.html');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([cF[cA]],{type:'text/plain'}));a.download=v;a.click();toast('Disimpan sebagai '+v)});
 $('#cmc').onclick=cCopy;
+$('#cfx').onclick=()=>{
+  cMn.classList.remove('show');
+  if(busy){toast('Tunggu jawaban Nusa selesai dulu');return}
+  const f=/\.html?$/i.test(cA)?cA:cPv;
+  if(!f||cF[f]===undefined){toast('Pilih berkas .html dulu');return}
+  const er=(cco.innerText||'').trim().slice(0,1500);
+  let code=cF[f];if(code.length>9000)code=code.slice(0,9000)+'\n<!-- dipotong -->';
+  const fence='```';
+  inp.value='Perbaiki bug di kode ('+f+') ini. '+(er?'Pesan error di konsol preview:\n'+er+'\n\n':'Tidak ada pesan error di konsol, tapi hasil di preview salah (kosong, warna datar, objek tidak terlihat, atau posisi salah); periksa logika kodenya. ')+'Kembalikan file lengkap yang sudah diperbaiki sampai </html>, jangan dipersingkat dan jangan menghapus fitur yang sudah ada.\n\n'+fence+'html\n'+code+'\n'+fence;
+  if(cOn)cStop();
+  ceEl.classList.remove('show');
+  try{grow()}catch(_){}
+  ask();
+};
 $('#acode').onclick=()=>{const a=curArt;if(!a||a.img)return;am.classList.remove('show');cImport([{name:a.name,content:a.content}]).then(g=>{if(g.length){openCode();toast(g[0]+' dibuka di Code')}else toast('Nama berkas tidak valid')})};
 $('#navcode').onclick=()=>{try{close()}catch(_){}openCode()};
 </script>
