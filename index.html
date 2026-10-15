@@ -1469,9 +1469,15 @@ const cRmF=n=>cDk?fetch('/api/file?name='+encodeURIComponent(n),{method:'DELETE'
 const cTpl=n=>{const e=cExt(n);return e==='html'?'<!DOCTYPE html>\n<html lang="id">\n<head>\n<meta charset="utf-8">\n<title>'+n+'</title>\n</head>\n<body>\n\n</body>\n</html>':e==='css'?'/* '+n+' */\n':e==='js'?'// '+n+'\n':e==='py'?'print("Halo dari Python")\n':e==='svg'?'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="tomato"/></svg>':''};
 function cBuild(name,hook){
   let h=cF[name];
+  const ESM=/^\s*(import\s+[\w{*"']|export\s+(default|const|let|var|function|class|async|\{|\*))/m;
+  const hasMap=/<script[^>]*type=["']importmap["']/i.test(h);
   h=h.replace(/<link\b[^>]*href=["']([^"']+\.css)["'][^>]*>/ig,(m,f)=>{const c=cF[f.split('/').pop()];return c!==undefined?'<style>'+c+'</style>':m});
-  h=h.replace(/<script\b([^>]*?)src=["']([^"']+\.js)["']([^>]*)>\s*<\/script>/ig,(m,x,f,y)=>{const c=cF[f.split('/').pop()];return c!==undefined?'<script'+x+y+'>'+c.replace(/<\/script/gi,'<\\/script')+'<\/script>':m});
-  if(!hook)return h;const t='<script>'+cHK+'<\/script>'+NAV_GUARD;
+  h=h.replace(/<script\b([^>]*?)src=["']([^"']+\.js)["']([^>]*)>\s*<\/script>/ig,(m,x,f,y)=>{const c=cF[f.split('/').pop()];if(c===undefined)return m;let a=(x+y).replace(/\s+$/,'');if(!/\btype\s*=/i.test(a)&&ESM.test(c))a+=' type="module"';return '<script'+a+'>'+c.replace(/<\/script/gi,'<\\/script')+'<\/script>'});
+  h=h.replace(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/ig,(m,a,c)=>{a=a||'';if(/\bsrc\s*=/i.test(a)||/\btype\s*=/i.test(a)||!ESM.test(c))return m;return '<script'+a+' type="module">'+c+'<\/script>'});
+  let map='';
+  if(!hasMap){const im={};Object.keys(cF).forEach(n=>{if(cExt(n)!=='js'&&cExt(n)!=='mjs')return;const u='data:text/javascript;charset=utf-8,'+encodeURIComponent(cF[n]);const st=n.replace(/\.m?js$/i,'');[n,'./'+n,'/'+n,st,st.toLowerCase()].forEach(k=>{im[k]=u})});if(Object.keys(im).length)map='<script type="importmap">'+JSON.stringify({imports:im}).replace(/</g,'\\u003c')+'<\/script>'}
+  const t=(hook?'<script>'+cHK+'<\/script>'+NAV_GUARD:'')+map;
+  if(!t)return h;
   return /<head[^>]*>/i.test(h)?h.replace(/<head[^>]*>/i,m=>m+t):t+h;
 }
 function cRun(){
