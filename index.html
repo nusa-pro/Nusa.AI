@@ -274,7 +274,7 @@ body[data-view="latih"] .scroll,body[data-view="latih"] .comp{display:none}
 .pvh b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pvh button{flex:none;width:auto;padding:8px 14px;border-radius:12px}
 #pvf{flex:1;border:0;background:#fff}
-.runb{display:inline-block;margin:8px 0 0;padding:6px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:inherit;font:inherit;font-size:13px;cursor:pointer}
+.fc{display:flex;align-items:center;gap:6px;margin:10px 0;padding:6px 6px 6px 8px;border-radius:14px;background:var(--panel);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}.fc pre{display:none}.fc .fo{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:0;text-align:left;padding:4px;border-radius:10px}.fc .fo svg{flex:none;color:var(--muted)}.fc .fn{min-width:0;display:flex;flex-direction:column;line-height:1.3}.fc .fn b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fc .fn small{color:var(--muted);font-size:12px}.fc .fa{flex:none;width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:10px;background:var(--raise);color:var(--ink)}.fc .fa:active{background:#202026}.runb{display:inline-block;margin:8px 0 0;padding:6px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:inherit;font:inherit;font-size:13px;cursor:pointer}
 #rnf{flex:1;min-height:0;border:0;background:#fff}
 #rno{max-height:38%;min-height:52px;overflow:auto;background:#000;color:#ddd;font:13px/1.45 ui-monospace,monospace;padding:8px 12px;border-top:1px solid #333}
 #rno div{white-space:pre-wrap;word-break:break-word}
@@ -715,9 +715,12 @@ function typeReply(b,text,fin){
 }
 function codeBlock(seg){
   const m=seg.match(/^([^\n]*)\n/),info=m?m[1].trim():'',has=m&&/^[\w+#.\-]*$/.test(info),code=(has?seg.slice(m[0].length):seg).replace(/\n$/,''),l=runLang(info);
-  return (l?'<button class="runb" type="button">\u25B6 Jalankan</button>':'')+'<pre'+(l?' data-lang="'+l+'"':'')+'>'+esc(code)+'</pre>';
+  const lg=(info.split(/\s+/)[0]||'').toLowerCase().replace(/[^a-z0-9+#.\-]/g,''),fm=(info.match(/[\w\-]+\.[a-z0-9]{1,5}\b/i)||[])[0];
+  let ex=EXT[lg]||lg;if(!/^[a-z0-9]{1,5}$/.test(ex))ex='txt';
+  const nm=fm||('kode.'+ex),sv=function(d){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'};
+  return '<div class="fc" data-n="'+nm+'"'+(l?' data-lang="'+l+'"':'')+'><button class="fo" type="button" data-a="open">'+sv('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>')+'<span class="fn"><b>'+nm+'</b><small>'+ex.toUpperCase()+' \u00B7 '+code.split('\n').length+' baris</small></span></button><button class="fa" type="button" data-a="copy" aria-label="Salin">'+sv('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>')+'</button>'+(l?'<button class="fa" type="button" data-a="run" aria-label="Preview">'+sv('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')+'</button>':'')+'<pre'+(l?' data-lang="'+l+'"':'')+'>'+esc(code)+'</pre></div>';
 }
-function renderReply(x){return x.split('```').map((seg,k)=>k%2?codeBlock(seg):esc(seg).replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>')).join('')}
+function renderReply(x){return x.split('```').map((seg,k)=>k%2?codeBlock(seg):esc(seg).replace(/^\n+|\n+$/g,'').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>')).join('')}
 function addHist(t){
   const h=$('#hist');const x=document.createElement('button');x.textContent=t;
   h.querySelectorAll('button.on').forEach(e=>e.classList.remove('on'));x.className='on';const f=h.querySelector('button:not(.pin)');h.insertBefore(x,f);curHist=x;
@@ -986,7 +989,10 @@ function runCode(code,lang,title){
 function runOut(t,m){const o=$('#rno'),d=document.createElement('div');d.className=t;d.textContent=m;o.appendChild(d);o.scrollTop=o.scrollHeight}
 window.addEventListener('message',e=>{const d=e.data;if(d&&d.nusaRun&&e.source===$('#rnf').contentWindow)runOut(d.t,String(d.m).slice(0,4000))});
 $('#rnc').onclick=()=>{$('#rnm').classList.remove('show');$('#rnf').srcdoc=''};
-$('#chat').addEventListener('click',e=>{const b=e.target.closest('.runb');if(!b)return;const p=b.nextElementSibling;if(p)runCode(p.textContent,p.dataset.lang,'Hasil kode')});
+$('#chat').addEventListener('click',e=>{const f=e.target.closest('.fc');if(!f)return;const code=f.querySelector('pre').textContent,nm=f.dataset.n,a=(e.target.closest('[data-a]')||{dataset:{}}).dataset.a;
+  if(a==='copy'){navigator.clipboard.writeText(code).then(()=>toast('Disalin'),()=>toast('Tidak bisa menyalin di sini'));return}
+  if(a==='run'){runCode(code,f.dataset.lang,nm);return}
+  openArt(arts.find(x=>x.content===code)||{id:'t',name:nm,content:code,ts:Date.now()})});
 /* gambar dari AI */
 function dlUrl(u,n){const l=document.createElement('a');l.href=u;l.download=n;document.body.appendChild(l);l.click();l.remove()}
 function fillImg(b,url,name){
