@@ -101,8 +101,8 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 .core{position:absolute;display:block;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#fff;box-shadow:none;animation:pulse 1.4s ease-in-out infinite}
 .think b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100vw - 130px);transition:opacity .2s;font-weight:400;font-size:14px;background:linear-gradient(90deg,#6b7280 0%,#F2F2F5 50%,#6b7280 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:shine 1.8s linear infinite}
 @keyframes shine{from{background-position:200% 0}to{background-position:-200% 0}}
-.think b.typ{min-height:1.5em;transition:opacity .38s ease,transform .38s ease}
-.think b.out{opacity:0;transform:translateY(-7px)}
+.think b.typ{min-height:1.5em;transition:opacity .38s ease}
+.think b.out{opacity:0}
 @keyframes atomspin{from{transform:rotateX(18deg) rotateY(0)}to{transform:rotateX(18deg) rotateY(360deg)}}
 @keyframes orbit{to{transform:rotateZ(360deg)}}
 @keyframes pulse{50%{transform:scale(.7);opacity:.7}}
@@ -675,7 +675,7 @@ function ask(){
   document.addEventListener('visibilitychange',onVis);arm();wlOn();
   const heavy=isHeavy(t,hasAtt);b.dataset.hv=heavy?'1':'0';if(heavy)nusaRun(b,heavy);
   proxyCall(JSON.stringify({stream:heavy,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined)arm()})
-    .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
+    .then(d=>nusaFinal(b,heavy).then(()=>d)).then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
     .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>{clearTimeout(to);document.removeEventListener('visibilitychange',onVis);wlOff()});
 }
@@ -750,7 +750,7 @@ function nusaRun(b,heavy){
   t._rot=1;lb.classList.add('typ');lb.textContent='';
   const rm=matchMedia('(prefers-reduced-motion:reduce)').matches;
   let prev=-1;
-  const alive=()=>t.isConnected;
+  const alive=()=>t.isConnected&&!t._stop;
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
   const pick=()=>{let k;do{k=Math.floor(Math.random()*RUN_CMDS.length)}while(k===prev&&RUN_CMDS.length>1);prev=k;return RUN_CMDS[k]};
   /* satu posisi: teks diketik huruf demi huruf, ditahan, lalu keluar dengan efek out sebelum diganti */
@@ -773,6 +773,25 @@ function nusaRun(b,heavy){
     if(!await say('Nusa working',1100,!heavy))return;
     while(alive()){if(!await say(pick(),1100))break}
   })();
+}
+/* Tahap akhir: begitu jawaban/file sudah diterima, teks acak memudar lalu diganti "Finalisasi result" sebelum hasil ditampilkan */
+async function nusaFinal(b,heavy){
+  const t=b.querySelector('.think');if(!heavy||!t||!t._rot)return;
+  const lb=t.querySelector('b');if(!lb)return;
+  t._stop=1;
+  const rm=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  lb.classList.add('out');await wait(rm?0:380);
+  if(!t.isConnected)return;
+  const txt='Finalisasi result';
+  lb.classList.remove('out');lb.textContent='';
+  for(let i=0;i<txt.length;){
+    if(!t.isConnected)return;
+    i=Math.min(txt.length,i+1+Math.floor(Math.random()*3));
+    lb.textContent=txt.slice(0,i);
+    await wait(rm?0:18+Math.random()*26);
+  }
+  await wait(rm?0:900);
 }
 function typeReply(b,text,fin){
   if(b.dataset.hv!=='1'||text.indexOf('```')>=0||matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
