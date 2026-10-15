@@ -87,7 +87,7 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 .acts button{background:none;border:0;color:var(--muted);font-size:13px;padding:2px 4px}
 /* loading atom 3D */
 .runlog{margin-top:8px;font:12px/1.6 ui-monospace,Menlo,Consolas,monospace;color:#8b909a;display:flex;flex-direction:column;gap:2px}.runlog .rl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.runlog .rl:last-child{color:#F2F2F5}
-.think{display:inline-flex;align-items:center;gap:8px}
+.think{display:inline-flex;align-items:center;gap:8px;max-width:100%;min-width:0}
 .atom{width:18px;height:18px;perspective:120px;display:block;flex:none}
 .atom-in{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;animation:atomspin 3.2s linear infinite}
 .ring{position:absolute;inset:0;display:block;border:1.2px solid #F2F2F5;border-radius:50%;transform-style:preserve-3d;box-shadow:none}
@@ -99,7 +99,7 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 .ring:nth-child(3) .orb{animation-duration:2.4s}
 .orb i{position:absolute;left:50%;top:-2px;width:3px;height:3px;margin-left:-1.5px;border-radius:50%;background:#fff;box-shadow:none}
 .core{position:absolute;display:block;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#fff;box-shadow:none;animation:pulse 1.4s ease-in-out infinite}
-.think b{font-weight:400;font-size:14px;background:linear-gradient(90deg,#6b7280 0%,#F2F2F5 50%,#6b7280 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:shine 1.8s linear infinite}
+.think b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100vw - 130px);transition:opacity .2s;font-weight:400;font-size:14px;background:linear-gradient(90deg,#6b7280 0%,#F2F2F5 50%,#6b7280 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:shine 1.8s linear infinite}
 @keyframes shine{from{background-position:200% 0}to{background-position:-200% 0}}
 @keyframes atomspin{from{transform:rotateX(18deg) rotateY(0)}to{transform:rotateX(18deg) rotateY(360deg)}}
 @keyframes orbit{to{transform:rotateZ(360deg)}}
@@ -671,7 +671,8 @@ function ask(){
   const arm=()=>{clearTimeout(to);to=setTimeout(()=>ctl.abort(),150000)};
   const onVis=()=>{if(document.hidden)clearTimeout(to);else arm()};
   document.addEventListener('visibilitychange',onVis);arm();wlOn();
-  proxyCall(JSON.stringify({stream:true,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined){arm();nusaRun(b,o.n)}})
+  const heavy=isHeavy(t,hasAtt);b.dataset.hv=heavy?'1':'0';if(heavy)nusaRun(b);
+  proxyCall(JSON.stringify({stream:heavy,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined)arm()})
     .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
     .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>{clearTimeout(to);document.removeEventListener('visibilitychange',onVis);wlOff()});
@@ -734,27 +735,34 @@ function safeCut(s,n){
   return s.slice(0,n);
 }
 
-const RUN_CMDS=['Membaca permintaanmu dulu..','Menyusun kerangka halaman..','Merancang struktur dan layout..','Memilih palet warna yang pas..','Menulis bagian header..','Merapikan tampilan di layar HP..','Menambahkan gaya dan animasi..','Menyiapkan logika interaktifnya..','Mengecek biar kodenya tidak terpotong..','Menyambungkan semua bagian..','Memoles detail kecil..','Menguji alur dari awal sampai akhir..','Menata ulang urutan elemen..','Menyesuaikan ukuran dan jarak..','Memeriksa kalau ada yang salah..','Merapikan kode biar enak dibaca..','Menyelesaikan bagian terakhir..','Hampir selesai, tinggal finishing..'];
-function nusaRun(b,n){
-  const t=b.querySelector('.think');if(!t)return;
-  let lg=b.querySelector('.runlog');
-  if(!lg){lg=document.createElement('div');lg.className='runlog';t.after(lg)}
-  const lb=t.querySelector('b');if(lb)lb.textContent='Nusa is working..';
-  if(n<=0)return;
-  const now=Date.now();if(lg._t&&now-lg._t<700)return;lg._t=now;
-  const cmd=RUN_CMDS[Math.floor(Math.random()*RUN_CMDS.length)];
-  const ln=document.createElement('div');ln.className='rl';lg.appendChild(ln);
-  while(lg.children.length>4)lg.removeChild(lg.firstChild);
-  let i=0;const tk=setInterval(()=>{if(!ln.isConnected){clearInterval(tk);return}ln.textContent=cmd.slice(0,++i);if(i>=cmd.length){clearInterval(tk);ln.textContent=cmd}},18);
+const RUN_CMDS=['Membaca instruksi', 'Mengurai permintaan', 'Memetakan struktur halaman', 'Menyusun kerangka HTML', 'Menentukan hierarki konten', 'Membuat grid layout', 'Mengatur jarak antar blok', 'Memilih palet warna', 'Mengunci tipografi', 'Menulis blok header', 'Menulis blok navigasi', 'Menulis blok hero', 'Menulis blok konten', 'Menulis blok footer', 'Menyusun aturan CSS', 'Menetapkan variabel warna', 'Mengatur ukuran font', 'Menyesuaikan tampilan layar HP', 'Menguji lebar 360 piksel', 'Menata ulang elemen', 'Merapikan padding', 'Menyelaraskan rata kiri', 'Memangkas elemen berlebih', 'Menambah efek hover', 'Menyiapkan transisi', 'Menulis logika tombol', 'Menyambung event klik', 'Menyiapkan fungsi utama', 'Memeriksa variabel', 'Memeriksa tag penutup', 'Menutup blok script', 'Menyatukan semua bagian', 'Menggabungkan style dan script', 'Mengecek panjang kode', 'Memastikan kode utuh', 'Mencari bagian yang terpotong', 'Memverifikasi penutup html', 'Menjalankan cek sintaks', 'Menghapus kode tak terpakai', 'Menyederhanakan selector', 'Merapikan indentasi', 'Mengurutkan properti CSS', 'Mengoptimalkan ukuran file', 'Memuat font', 'Menyiapkan font cadangan', 'Mengatur kontras teks', 'Menyetel bayangan dan sudut', 'Menyiapkan mode gelap', 'Mengecek aksesibilitas dasar', 'Menambahkan label tombol', 'Menyusun daftar proyek', 'Menyusun bagian profil', 'Menyusun bagian kontak', 'Menyusun bagian keahlian', 'Menyusun bagian tentang', 'Memasang ikon', 'Menggambar elemen SVG', 'Mengatur rasio gambar', 'Menyetel breakpoint', 'Mengunci tinggi viewport', 'Menahan overflow horizontal', 'Menguji gulir halaman', 'Menguji menu geser', 'Memeriksa urutan tab', 'Menyiapkan state awal', 'Memuat data contoh', 'Membuat fungsi validasi', 'Menyiapkan penyimpanan lokal', 'Menangani input kosong', 'Menangani error', 'Mengisi teks isi', 'Memotong teks terlalu panjang', 'Mengecek tautan internal', 'Menyambung antar halaman', 'Menyusun animasi masuk', 'Mengatur durasi animasi', 'Mematikan animasi berat', 'Menyetel kecepatan render', 'Mengurangi reflow', 'Menyusun ulang DOM', 'Membersihkan duplikat', 'Menyamakan nama class', 'Mengganti nilai tetap dengan variabel', 'Memeriksa selector bentrok', 'Menutup tag yang terbuka', 'Mengecek tanda kurung', 'Mengecek tanda kutip', 'Menguji alur dari awal', 'Menguji alur sampai akhir', 'Memeriksa tampilan kosong', 'Memeriksa warna datar', 'Memeriksa posisi elemen', 'Mengunci urutan layer', 'Menyetel z-index', 'Menyelesaikan bagian akhir', 'Finalisasi kode', 'Menulis ulang bagian lemah', 'Memoles detail kecil', 'Menyiapkan hasil', 'Mengirim hasil'];
+/* Teks status: satu baris, bergantian di tempat label "Nusa is working". Hanya untuk permintaan berat (kode/website). */
+function isHeavy(t,hasFiles){
+  t=String(t||'');
+  if(hasFiles||t.length>350||t.indexOf('```')>=0)return true;
+  return /\b(buat(kan)?|bikin(kan)?|bangun|rancang|desain|website|situs|landing|html|css|javascript|kode|coding|script|aplikasi|game|program|fitur|refaktor|refactor|perbaiki|fix|bug|error|portofolio|portfolio|dashboard|template|animasi|halaman|login|api|worker|python|react|fungsi|function)\b/i.test(t);
+}
+function nusaRun(b){
+  const t=b.querySelector('.think');if(!t||t._rot)return;
+  const lb=t.querySelector('b');if(!lb)return;
+  t._rot=1;let prev=-1;
+  const pick=()=>{let k;do{k=Math.floor(Math.random()*RUN_CMDS.length)}while(k===prev&&RUN_CMDS.length>1);prev=k;return RUN_CMDS[k]};
+  lb.textContent=pick();
+  const tk=setInterval(()=>{
+    if(!t.isConnected){clearInterval(tk);return}
+    lb.style.opacity='0';
+    setTimeout(()=>{if(t.isConnected){lb.textContent=pick();lb.style.opacity='1'}},200);
+  },1800);
 }
 function typeReply(b,text,fin){
-  if(matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
+  if(b.dataset.hv!=='1'||text.indexOf('```')>=0||matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
   b.classList.add('soft');
   b.innerHTML=renderReply(text);
   // DOM dirender sekali; teks dibuka huruf demi huruf lewat nodeValue (tanpa render ulang, jadi tidak patah-patah)
   const tw=document.createTreeWalker(b,NodeFilter.SHOW_TEXT),items=[];let total=0;
   while(tw.nextNode()){const nd=tw.currentNode,full=nd.nodeValue,par=nd.parentNode;
     if(!full)continue;
+    if(par.closest&&par.closest('.fc'))continue; /* isi kode di kartu file tidak boleh diketik, nanti terpotong saat dibuka */
     items.push({nd:nd,full:full,start:total,par:par===b?null:par});total+=full.length;
     nd.nodeValue='';if(par!==b)par.style.display='none'}
   if(!total){b.classList.remove('soft');return fin()}
@@ -778,6 +786,30 @@ function typeReply(b,text,fin){
   requestAnimationFrame(step);
 }
 const WEBX=/^(html|css|jsx?|tsx?|json|py|svg|php|java|kt|c|cpp|cs|go|rs|sql|xml|ya?ml|sh|rb|swift|md)$/;
+
+/* Pecah teks jadi [teks, kode, teks, kode, ...] berdasarkan pagar ``` di awal baris.
+   ``` di tengah baris (misal di dalam string/template JS) tidak lagi memutus kode. */
+function splitFences(x){
+  const L=String(x).split('\n'),n=L.length,out=[],isC=a=>/^[ \t]*```[ \t]*$/.test(a),cand=[];
+  L.forEach((a,i)=>{if(isC(a))cand.push(i)});
+  let tb='',cb='',inC=false,got='';
+  for(let i=0;i<n;i++){
+    const a=L[i],nl=i<n-1?'\n':'';
+    if(!inC){
+      const m=a.match(/^[ \t]*```([^`]*)$/);
+      if(m){out.push(tb);tb='';inC=true;cb=m[1].trim()+'\n';got='';continue}
+      tb+=a+nl;
+    }else{
+      if(isC(a)){
+        const open=/<!doctype|<html/i.test(got)&&!/<\/html\s*>/i.test(got);
+        if(!(open&&cand.some(j=>j>i))){out.push(cb);inC=false;tb='';continue}
+      }
+      cb+=a+'\n';got+=a+'\n';
+    }
+  }
+  out.push(inC?cb:tb);
+  return out;
+}
 function fileInfo(seg,prev){
   const m=seg.match(/^([^\n]*)\n/),info=m?m[1].trim():'',has=m&&/^[\w+#.\-]*$/.test(info),code=(has?seg.slice(m[0].length):seg).replace(/\n$/,'');
   const lg=(info.split(/\s+/)[0]||'').toLowerCase().replace(/[^a-z0-9+#.\-]/g,'');
@@ -843,7 +875,7 @@ function fileCard(r){
 }
 function renderReply(x){
   const fs=[],o=[];let pv='';
-  x.split('```').forEach((seg,k,ar)=>{
+  splitFences(x).forEach((seg,k,ar)=>{
     if(k%2){const f=fileInfo(seg,pv);f.cut=k===ar.length-1&&ar.length%2===0;if(f.file)fs.push(f);else o.push({h:'<pre>'+esc(f.code)+'</pre>'})}
     else{pv=seg;o.push({s:seg,t:1})}
   });
@@ -1054,14 +1086,14 @@ const saveArts=()=>{for(let i=0;i<40;i++){try{localStorage.setItem(AK,JSON.strin
 const EXT={javascript:'js',typescript:'ts',python:'py',bash:'sh',shell:'sh',zsh:'sh',markdown:'md',kotlin:'kt',yml:'yaml',text:'txt',plain:'txt',plaintext:'txt',htm:'html',csharp:'cs','c++':'cpp',golang:'go',rust:'rs',ruby:'rb'};
 const FNR=/[\w\-]+\.(?:html?|css|jsx?|tsx?|json|py|md|txt|sh|java|kt|c|cpp|cs|go|rs|php|sql|xml|ya?ml|csv|rb|swift)\b/ig;
 function extractArts(text,from){
-  let k=0,m,pe=0;const re=/```([^\n`]*)\n([\s\S]*?)```/g;
-  while((m=re.exec(text))){
-    const st=pe;pe=re.lastIndex;
-    const info=m[1].trim(),code=m[2].replace(/\n$/,'');
+  let k=0;const sg=splitFences(text);
+  for(let q=1;q<sg.length;q+=2){
+    if(q===sg.length-1&&sg.length%2===0)continue; /* blok belum ditutup */
+    const seg=sg[q],mm=seg.match(/^([^\n]*)\n/),info=mm?mm[1].trim():'',code=(mm?seg.slice(mm[0].length):seg).replace(/\n$/,'');
     if(!code.trim())continue;
     const lines=code.split('\n').filter(x=>x.trim()).length;
     let name=(info.match(/[\w\-]+\.[a-z]{1,5}\b/i)||[])[0];
-    if(!name){const bf=text.slice(Math.max(st,m.index-120),m.index).match(FNR);if(bf)name=bf[bf.length-1]}
+    if(!name){const bf=(sg[q-1]||'').slice(-120).match(FNR);if(bf)name=bf[bf.length-1]}
     if(!name&&lines<5)continue;
     if(!name){const l=(info.split(/\s+/)[0]||'txt').toLowerCase();let e=EXT[l]||l;if(!/^[a-z0-9]{1,5}$/.test(e))e='txt';let nn=arts.length+1;while(arts.some(x=>x.name==='file-'+nn+'.'+e))nn++;name='file-'+nn+'.'+e}
     const i=arts.findIndex(x=>x.name===name);
@@ -1228,7 +1260,10 @@ const DESIGN_GUIDE=['[PANDUAN DESAIN WEB, wajib diikuti saat membuat tampilan we
 'ANTI AI-SLOP: hasil tidak boleh terlihat dibuat otomatis. Hindari ciri khasnya: gradien ungu-biru, kartu yang semuanya sama persis, ikon emoji sebagai hiasan, judul klise seperti Selamat Datang di atau Solusi Terbaik Anda, kata kosong seperti inovatif dan revolusioner, angka statistik karangan yang berlebihan, bayangan tebal dan glow neon, serta semua elemen rata tengah. Tulis teks yang spesifik dan nyata sesuai topik, seperti dibuat oleh desainer manusia yang teliti.',
 'RAPI DAN ELEGAN: tampilan harus tertata, bukan asal cetak. Pakai grid dan jarak yang konsisten, rata kiri atau kanan yang sejajar antar bagian, hierarki jelas (satu judul utama, subjudul, isi), maksimal 2 ukuran berat font, dan lebar isi dibatasi sekitar 1100px agar tidak melebar. Ruang kosong dipakai dengan sengaja, tiap bagian punya padding vertikal yang sama, tidak ada elemen menumpuk, terpotong, atau keluar layar di HP. Lebih sedikit elemen yang digarap halus lebih baik daripada banyak elemen yang berantakan.',
 'STRUKTUR: header atau navbar rapi, hero dengan judul kuat dan tombol ajakan yang jelas, bagian utama berupa kartu dalam grid, lalu bagian pelengkap sesuai topik (harga, testimoni, FAQ, kontak) dan footer. Isi dengan konten nyata dalam bahasa Indonesia sesuai topik, bukan lorem ipsum.',
-'TEKNIS: mobile-first dan responsif (meta viewport, flex atau grid). Tombol dan tautan punya efek hover, active, dan focus; transisi halus sekitar 0,2 detik dan hormati prefers-reduced-motion. Ikon pakai SVG inline sederhana, bukan emoji dan bukan gambar luar. Tautan antar bagian pakai #id. Semua tombol harus benar-benar berfungsi dengan JavaScript sederhana, dan form jangan mengirim ke server.',
+'IKON TANPA EMOJI: dilarang memakai emoji di bagian mana pun halaman (judul, tombol, kartu, daftar, footer). Semua ikon wajib SVG inline dengan atribut viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round", ukuran diatur lewat CSS (20 sampai 24px) dan warna mengikuti teks. Pakai konsisten satu gaya garis untuk semua ikon. Isi path siap pakai (taruh di dalam tag svg): panah: <path d="M5 12h14M13 6l6 6-6 6"/> | centang: <path d="M5 12.5l4.5 4.5L19 7.5"/> | menu: <path d="M4 7h16M4 12h16M4 17h16"/> | tutup: <path d="M6 6l12 12M18 6L6 18"/> | cari: <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/> | surat: <rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/> | telepon: <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z"/> | lokasi: <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/> | bintang: <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/> | hati: <path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/> | pengguna: <circle cx="12" cy="8" r="4"/><path d="M4 20c1-4 4-6 8-6s7 2 8 6"/> | rumah: <path d="M4 11l8-7 8 7v9H4z"/> | keranjang: <path d="M4 5h2l2 11h9l2-8H7"/><circle cx="10" cy="20" r="1.2"/><circle cx="17" cy="20" r="1.2"/> | kilat: <path d="M13 3L5 14h6l-1 7 8-11h-6z"/> | jam: <circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/> | kode: <path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>. Untuk ikon lain, gambar sendiri dengan path sederhana bergaya sama. Tempatkan ikon di kotak bulat atau persegi lembut agar rapi, jangan sebagai hiasan acak.',
+'FOTO CONTOH ACAK: untuk foto isi web (hero, kartu, galeri, avatar, produk) pakai foto acak dari https://picsum.photos/seed/KATA/LEBAR/TINGGI, contoh https://picsum.photos/seed/kopi-pagi-1/800/600. Ganti KATA dengan kata unik yang berbeda untuk setiap foto (huruf kecil, tanpa spasi, misalnya nama-topik-nomor) agar tiap foto berbeda tetapi tetap sama setiap dimuat ulang. Sesuaikan ukuran dengan tempatnya: hero 1600/900, kartu 800/600, potret 600/800, avatar 200/200. Selalu beri alt yang spesifik, atribut width dan height, loading="lazy", dan object-fit:cover lewat CSS. Bungkus gambar dengan div berlatar abu lembut (#E5E7EB) dan aspect-ratio supaya layout tidak loncat, serta pasang onerror="this.remove()" pada img agar kalau foto gagal dimuat yang tampil hanya blok warna, bukan ikon gambar rusak. Foto ini hanya contoh sementara, jangan klaim sebagai foto asli milik pengguna.',
+'URUTAN KREATIF: siapkan bahan dulu, yaitu daftar ikon SVG yang akan dipakai dan daftar foto contoh dengan seed unik. Setelah bahan siap, baru berimajinasi bebas dalam mendesain: foto besar dengan potongan bentuk tidak biasa, teks bertumpuk di atas foto dengan lapisan gelap tipis agar terbaca, galeri tidak simetris, kartu berlapis, penataan editorial. Foto dan ikon hanya bahan; desain akhir tetap harus punya satu ide khas yang cocok dengan topik, bukan sekadar menempel foto di kotak.',
+'TEKNIS: mobile-first dan responsif (meta viewport, flex atau grid). Tombol dan tautan punya efek hover, active, dan focus; transisi halus sekitar 0,2 detik dan hormati prefers-reduced-motion. Ikon pakai SVG inline sederhana, bukan emoji dan bukan file ikon luar; foto contoh ikuti aturan FOTO CONTOH. Tautan antar bagian pakai #id. Semua tombol harus benar-benar berfungsi dengan JavaScript sederhana, dan form jangan mengirim ke server.',
 ']'].join('\n');
 function buildMsgs(c){
   const o=apiHist(c),ins=personaText(),last=o[o.length-1];
