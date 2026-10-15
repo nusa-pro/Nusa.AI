@@ -617,6 +617,7 @@ async function proxyCall(body,signal){
   let last=null,tok='';
   try{const ss=await sb.auth.getSession();tok=(ss&&ss.data&&ss.data.session&&ss.data.session.access_token)||''}catch(e){}
   const hd={'Content-Type':'application/json'};
+  if(tok)hd['Authorization']='Bearer '+tok;
   for(let i=0;i<3;i++){
     try{
       const r=await fetch(PROXY_URL,{method:'POST',headers:hd,body:body,signal:signal});
@@ -631,7 +632,7 @@ async function proxyCall(body,signal){
   throw new Error(last&&last.message&&!/^HTTP (429|5\d\d)$/.test(last.message)?last.message:'Server AI sedang sibuk. Coba lagi sebentar lagi.');
 }
 const IMG_URL='https://nusa-picture.pinnshiki.workers.dev/'; // Worker khusus gambar
-const PROXY_URL='https://nusa-api.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
+const PROXY_URL='https://nusa-worker.pinnshiki.workers.dev/'; // isi dengan URL Cloudflare Worker, contoh: https://nusa-proxy.namakamu.workers.dev
 function safeCut(s,n){
   if(n>=s.length)return s;
   if(n<=0)return '';
