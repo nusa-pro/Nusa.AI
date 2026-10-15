@@ -791,7 +791,14 @@ async function nusaFinal(b,heavy){
     lb.textContent=txt.slice(0,i);
     await wait(rm?0:18+Math.random()*26);
   }
-  await wait(rm?0:900);
+  /* ditahan agak lama (±3,5–5 dtk) dengan titik berjalan, supaya orang tahu hasil sudah hampir jadi */
+  const hold=rm?0:3500+Math.random()*1500,t0=Date.now();let d=0;
+  while(Date.now()-t0<hold){
+    if(!t.isConnected)return;
+    d=(d+1)%4;lb.textContent=txt+'.'.repeat(d);
+    await wait(420);
+  }
+  lb.textContent=txt;
 }
 function typeReply(b,text,fin){
   if(b.dataset.hv!=='1'||text.indexOf('```')>=0||matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
