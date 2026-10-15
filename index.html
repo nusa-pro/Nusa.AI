@@ -86,6 +86,7 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 .acts{display:flex;gap:6px;margin-top:6px}
 .acts button{background:none;border:0;color:var(--muted);font-size:13px;padding:2px 4px}
 /* loading atom 3D */
+.runlog{margin-top:8px;font:12px/1.6 ui-monospace,Menlo,Consolas,monospace;color:#8b909a;display:flex;flex-direction:column;gap:2px}.runlog .rl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.runlog .rl:last-child{color:#F2F2F5}
 .think{display:inline-flex;align-items:center;gap:8px}
 .atom{width:18px;height:18px;perspective:120px;display:block;flex:none}
 .atom-in{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;animation:atomspin 3.2s linear infinite}
@@ -670,7 +671,7 @@ function ask(){
   const arm=()=>{clearTimeout(to);to=setTimeout(()=>ctl.abort(),150000)};
   const onVis=()=>{if(document.hidden)clearTimeout(to);else arm()};
   document.addEventListener('visibilitychange',onVis);arm();wlOn();
-  proxyCall(JSON.stringify({stream:true,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined){arm();const lb=b.querySelector('.think b');if(lb&&o.n>0)lb.textContent='waiting for a reply.. '+o.n.toLocaleString('id-ID')+' karakter'}})
+  proxyCall(JSON.stringify({stream:true,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined){arm();nusaRun(b,o.n)}})
     .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
     .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>{clearTimeout(to);document.removeEventListener('visibilitychange',onVis);wlOff()});
@@ -731,6 +732,20 @@ function safeCut(s,n){
     else break;
   }
   return s.slice(0,n);
+}
+
+const RUN_CMDS=['Membaca permintaanmu dulu..','Menyusun kerangka halaman..','Merancang struktur dan layout..','Memilih palet warna yang pas..','Menulis bagian header..','Merapikan tampilan di layar HP..','Menambahkan gaya dan animasi..','Menyiapkan logika interaktifnya..','Mengecek biar kodenya tidak terpotong..','Menyambungkan semua bagian..','Memoles detail kecil..','Menguji alur dari awal sampai akhir..','Menata ulang urutan elemen..','Menyesuaikan ukuran dan jarak..','Memeriksa kalau ada yang salah..','Merapikan kode biar enak dibaca..','Menyelesaikan bagian terakhir..','Hampir selesai, tinggal finishing..'];
+function nusaRun(b,n){
+  const t=b.querySelector('.think');if(!t)return;
+  let lg=b.querySelector('.runlog');
+  if(!lg){lg=document.createElement('div');lg.className='runlog';t.after(lg)}
+  const lb=t.querySelector('b');if(lb)lb.textContent='Nusa is working..';
+  if(n<=0)return;
+  const now=Date.now();if(lg._t&&now-lg._t<700)return;lg._t=now;
+  const cmd=RUN_CMDS[Math.floor(Math.random()*RUN_CMDS.length)];
+  const ln=document.createElement('div');ln.className='rl';lg.appendChild(ln);
+  while(lg.children.length>4)lg.removeChild(lg.firstChild);
+  let i=0;const tk=setInterval(()=>{if(!ln.isConnected){clearInterval(tk);return}ln.textContent=cmd.slice(0,++i);if(i>=cmd.length){clearInterval(tk);ln.textContent=cmd}},18);
 }
 function typeReply(b,text,fin){
   if(matchMedia('(prefers-reduced-motion:reduce)').matches){b.innerHTML=renderReply(text);return fin()}
