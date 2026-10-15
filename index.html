@@ -737,33 +737,64 @@ function fileInfo(seg,prev){
   let ex=fm?fm.split('.').pop().toLowerCase():(EXT[lg]||lg);if(ex==='htm')ex='html';if(!/^[a-z0-9]{1,5}$/.test(ex))ex='txt';
   return {info:info,code:code,ex:ex,n:fm||(ex==='html'?'index.html':'kode.'+ex),file:WEBX.test(ex),l:runLang(ex),c:1};
 }
+function isSrvJs(f){return /^(server|worker)/i.test(f.n)||/\brequire\s*\(|module\.exports|process\.env|from\s+['"](express|http|https|fs|path|mongoose|node:[\w\/]+)['"]|addEventListener\(\s*['"]fetch['"]|export\s+default\s*\{|\bapp\.(listen|use|get|post|put|delete)\(/.test(f.code)}
+const NAVRT=`<script>(function(){function show(n,k){var ps=document.querySelectorAll('[data-page]'),f=null,i;for(i=0;i<ps.length;i++)if(ps[i].getAttribute('data-page')===n)f=ps[i];if(!f)return false;for(i=0;i<ps.length;i++)ps[i].hidden=ps[i]!==f;window.scrollTo(0,0);if(!k)try{history.replaceState(null,'','#'+n)}catch(e){}return true}document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;var h=a.getAttribute('href').slice(1);if(h&&show(h))e.preventDefault()});window.addEventListener('hashchange',function(){show(location.hash.slice(1)||'index',1)});if(location.hash.length>1)show(location.hash.slice(1),1)})()<\/script>`;
 function mergeFiles(fs){
-  const h=fs.find(f=>f.ex==='html');
-  if(!h)return [fs.length===1?fs[0]:{n:fs[0].n,ex:fs[0].ex,l:'',c:fs.length,code:fs.map(f=>'/* ===== '+f.n+' ===== */\n'+f.code).join('\n\n')}];
-  let c=h.code,k=1;const rest=[];
-  fs.forEach(f=>{if(f===h)return;
-    const isC=f.ex==='css',isJ=/^jsx?$/.test(f.ex);if(!isC&&!isJ){rest.push(f);return}k++;
-    const q=f.n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),
-      re=isC?new RegExp('<link[^>]*href=["\'][^"\']*'+q+'["\'][^>]*>','i'):new RegExp('<script[^>]*src=["\'][^"\']*'+q+'["\'][^>]*>\\s*<\/script>','i'),
-      tag=isC?'<style>\n'+f.code+'\n</style>':'<script>\n'+f.code.replace(/<\/script/gi,'<\\/script')+'\n<\/script>';
-    if(re.test(c))c=c.replace(re,()=>tag);
-    else if(isC)c=/<\/head>/i.test(c)?c.replace(/<\/head>/i,()=>tag+'\n</head>'):tag+'\n'+c;
-    else c=/<\/body>/i.test(c)?c.replace(/<\/body>/i,()=>tag+'\n</body>'):c+'\n'+tag;
-  });
-  return [{n:h.n,ex:'html',l:'html',c:k,code:c}].concat(rest);
+  const pages=fs.filter(f=>f.ex==='html'),css=fs.filter(f=>f.ex==='css');
+  const js=fs.filter(f=>/^jsx?$/.test(f.ex)&&!isSrvJs(f));
+  const rest=fs.filter(f=>pages.indexOf(f)<0&&css.indexOf(f)<0&&js.indexOf(f)<0).map(f=>/^jsx?$/.test(f.ex)?Object.assign({},f,{l:''}):f);
+  const web=pages.concat(css,js);
+  if(!pages.length){
+    const g=css.concat(js);
+    if(!g.length)return rest;
+    const one=g.length===1?g[0]:{n:g[0].n,ex:g[0].ex,l:'',c:g.length,code:g.map(f=>'/* ===== '+f.n+' ===== */\n'+f.code).join('\n\n')};
+    return [one].concat(rest);
+  }
+  const main=pages.find(f=>f.n.toLowerCase()==='index.html')||pages[0],others=pages.filter(f=>f!==main);
+  const bodyTag=/<body([^>]*)>([\s\S]*)<\/body>/i,used=new Set();
+  const esc2=n=>n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const inl=c=>{
+    css.forEach(f=>{const re=new RegExp('<link[^>]*href=["\'][^"\']*'+esc2(f.n)+'["\'][^>]*>','i');if(re.test(c)){c=c.replace(re,()=>'<style>\n'+f.code+'\n</style>');used.add(f)}});
+    js.forEach(f=>{const re=new RegExp('<script[^>]*src=["\'][^"\']*'+esc2(f.n)+'["\'][^>]*>\\s*<\/script>','i');if(re.test(c)){c=c.replace(re,()=>'<script>\n'+f.code.replace(/<\/script/gi,'<\\/script')+'\n<\/script>');used.add(f)}});
+    return c};
+  const jsTag=f=>'<script>\n'+f.code.replace(/<\/script/gi,'<\\/script')+'\n<\/script>';
+  if(!others.length){
+    let c=inl(main.code);
+    css.filter(f=>!used.has(f)).forEach(f=>{const t='<style>\n'+f.code+'\n</style>';c=/<\/head>/i.test(c)?c.replace(/<\/head>/i,()=>t+'\n</head>'):t+'\n'+c});
+    js.filter(f=>!used.has(f)).forEach(f=>{const t=jsTag(f);c=/<\/body>/i.test(c)?c.replace(/<\/body>/i,()=>t+'\n</body>'):c+'\n'+t});
+    return [{n:main.n,ex:'html',l:'html',c:web.length,code:c}].concat(rest);
+  }
+  const nm=new Map(),taken=new Set();
+  pages.forEach(f=>{const b=f===main?'index':(f.n.replace(/\.html?$/i,'').toLowerCase().replace(/[^a-z0-9_-]+/g,'-')||'page');let k=b,i=2;while(taken.has(k))k=b+'-'+i++;taken.add(k);nm.set(f,k)});
+  const sty=[],strip=h=>h.replace(/<style[\s\S]*?<\/style>/gi,m=>{sty.push(m);return ''});
+  const bodyOf=h=>{const m=h.match(bodyTag);return m?m[2]:h.replace(/<!doctype[^>]*>/i,'').replace(/<head[\s\S]*?<\/head>/i,'').replace(/<\/?html[^>]*>/ig,'')};
+  const mc=inl(main.code),hm=mc.match(/<head[^>]*>([\s\S]*?)<\/head>/i),tm=mc.match(/<html[^>]*>/i),bm=mc.match(bodyTag);
+  const hh=hm?hm[1]:'<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>'+main.n+'</title>';
+  const secs=pages.map(f=>{
+    let b;
+    if(f===main)b=bodyOf(mc);
+    else{strip((f.code.match(/<head[\s\S]*?<\/head>/i)||[''])[0]);b=bodyOf(f.code).replace(/<script\b[^>]*\bsrc=["'](?!https?:|\/\/)[^"']*["'][^>]*>\s*<\/script>/gi,'')}
+    return '<div data-page="'+nm.get(f)+'"'+(f===main?'':' hidden')+'>\n'+strip(b)+'\n</div>'});
+  let body=secs.join('\n');
+  pages.forEach(f=>{const re=new RegExp('href=(["\'])(?:[^"\']*\\/)?'+esc2(f.n)+'(?:#[^"\']*)?\\1','gi');body=body.replace(re,'href="#'+nm.get(f)+'"')});
+  body=body.replace(/href=(["'])\/\1/g,'href="#index"');
+  const xs=css.filter(f=>!used.has(f)).map(f=>'<style>\n'+f.code+'\n</style>'),xj=js.filter(f=>!used.has(f)).map(jsTag);
+  const out='<!DOCTYPE html>\n'+(tm?tm[0]:'<html lang="id">')+'\n<head>\n'+hh+'\n<style>[data-page][hidden]{display:none!important}</style>\n'+sty.concat(xs).join('\n')+'\n</head>\n<body'+(bm?bm[1]:'')+'>\n'+body+'\n'+xj.join('\n')+'\n'+NAVRT+'\n</body>\n</html>';
+  return [{n:main.n,ex:'html',l:'html',c:web.length,code:out}].concat(rest);
 }
 function fileCard(r){
   const sv=function(d){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'};
   return '<div class="fc" data-n="'+r.n+'"'+(r.l?' data-lang="'+r.l+'"':'')+'><button class="fo" type="button" data-a="open">'+sv('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>')+'<span class="fn"><b>'+r.n+'</b><small>'+r.ex.toUpperCase()+(r.c>1?' \u00B7 '+r.c+' file digabung':'')+' \u00B7 '+r.code.split('\n').length+' baris</small></span></button><button class="fa" type="button" data-a="copy" aria-label="Salin">'+sv('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>')+'</button>'+(r.l?'<button class="fa" type="button" data-a="run" aria-label="Preview">'+sv('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')+'</button>':'')+'<pre>'+esc(r.code)+'</pre></div>';
 }
 function renderReply(x){
-  const fs=[],out=[];let pv='';
+  const fs=[],o=[];let pv='';
+  const tx=t=>esc(t).replace(/^\n+|\n+$/g,'').replace(/^#{1,6}[ \t]*(.+)$/gm,'<b>$1</b>').replace(/^&gt;[ \t]?/gm,'').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>');
   x.split('```').forEach((seg,k)=>{
-    if(k%2){const f=fileInfo(seg,pv);if(f.file)fs.push(f);else out.push('<pre>'+esc(f.code)+'</pre>')}
-    else{pv=seg;out.push(esc(seg).replace(/^\n+|\n+$/g,'').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>'))}
+    if(k%2){const f=fileInfo(seg,pv);if(f.file)fs.push(f);else o.push({h:'<pre>'+esc(f.code)+'</pre>'})}
+    else{pv=seg;const h=tx(seg);if(h)o.push({h:h,t:1})}
   });
-  if(fs.length)out.push(mergeFiles(fs).map(fileCard).join(''));
-  return out.join('');
+  if(fs.length)o.push({h:mergeFiles(fs).map(fileCard).join('')});
+  return o.map((q,i)=>(i&&q.t&&o[i-1].t?'\n':'')+q.h).join('');
 }
 function addHist(t){
   const h=$('#hist');const x=document.createElement('button');x.textContent=t;
@@ -961,7 +992,7 @@ function extractArts(text,from){
   let k=0,m,pe=0;const re=/```([^\n`]*)\n([\s\S]*?)```/g;
   while((m=re.exec(text))){
     const st=pe;pe=re.lastIndex;
-    const info=m[1].trim(),code=m[2].replace(/\n$/,'').slice(0,200000);
+    const info=m[1].trim(),code=m[2].replace(/\n$/,'');
     if(!code.trim())continue;
     const lines=code.split('\n').filter(x=>x.trim()).length;
     let name=(info.match(/[\w\-]+\.[a-z]{1,5}\b/i)||[])[0];
@@ -1004,7 +1035,9 @@ $('#apv').onclick=()=>{am.classList.remove('show');runCode(curArt.content,'html'
 $('#pvc').onclick=()=>{$('#pvm').classList.remove('show');$('#pvf').srcdoc=''};
 
 /* jalankan kode: html / js / python / svg di sandbox (tanpa akses ke akun/data Nusa) */
-const RUN_CONSOLE='<script>(function(){function s(t,a){try{parent.postMessage({nusaRun:1,t:t,m:Array.prototype.map.call(a,function(x){try{return typeof x==="object"?JSON.stringify(x):String(x)}catch(e){return String(x)}}).join(" ")},"*")}catch(e){}}["log","info","warn","error"].forEach(function(k){var o=console[k];console[k]=function(){s(k,arguments);o.apply(console,arguments)}});window.addEventListener("error",function(e){s("error",[e.message])});window.addEventListener("unhandledrejection",function(e){s("error",["Promise: "+(e.reason&&e.reason.message||e.reason)])})})()<\/script>';
+const NAV_GUARD='<script>(function(){document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a)return;var h=a.getAttribute("href")||"";if(/^javascript:/i.test(h))return;e.preventDefault();if(h.charAt(0)==="#"){var t=h.length>1&&document.getElementById(h.slice(1));if(t)t.scrollIntoView({behavior:"smooth"});else if(h.length<2)window.scrollTo(0,0)}else console.warn("Tautan tidak dibuka di pratinjau: "+h)},true);document.addEventListener("submit",function(e){e.preventDefault();console.info("Form dikirim (dimatikan di pratinjau)")},true)})()<\/script>';
+let RUN_CONSOLE='<script>(function(){function s(t,a){try{parent.postMessage({nusaRun:1,t:t,m:Array.prototype.map.call(a,function(x){try{return typeof x==="object"?JSON.stringify(x):String(x)}catch(e){return String(x)}}).join(" ")},"*")}catch(e){}}["log","info","warn","error"].forEach(function(k){var o=console[k];console[k]=function(){s(k,arguments);o.apply(console,arguments)}});window.addEventListener("error",function(e){s("error",[e.message])});window.addEventListener("unhandledrejection",function(e){s("error",["Promise: "+(e.reason&&e.reason.message||e.reason)])})})()<\/script>';
+RUN_CONSOLE+=NAV_GUARD;
 const PYODIDE_URL='https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
 function bundleHtml(h){
   const get=n=>{const a=arts.find(x=>!x.img&&x.name.toLowerCase()===n.toLowerCase());return a?a.content:null};
@@ -1401,7 +1434,7 @@ function cBuild(name,hook){
   let h=cF[name];
   h=h.replace(/<link\b[^>]*href=["']([^"']+\.css)["'][^>]*>/ig,(m,f)=>{const c=cF[f.split('/').pop()];return c!==undefined?'<style>'+c+'</style>':m});
   h=h.replace(/<script\b([^>]*?)src=["']([^"']+\.js)["']([^>]*)>\s*<\/script>/ig,(m,x,f,y)=>{const c=cF[f.split('/').pop()];return c!==undefined?'<script'+x+y+'>'+c.replace(/<\/script/gi,'<\\/script')+'<\/script>':m});
-  if(!hook)return h;const t='<script>'+cHK+'<\/script>';
+  if(!hook)return h;const t='<script>'+cHK+'<\/script>'+NAV_GUARD;
   return /<head[^>]*>/i.test(h)?h.replace(/<head[^>]*>/i,m=>m+t):t+h;
 }
 function cRun(){
