@@ -114,7 +114,10 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 textarea{width:100%;border:0;background:transparent;color:var(--ink);font:inherit;resize:none;max-height:140px;padding:6px 8px;outline:none}
 .row{display:flex;gap:6px;align-items:center}
 
-.row .mic{margin-left:auto;display:flex;align-items:center;justify-content:center;gap:6px}
+.row .mic{margin-left:auto;display:flex;align-items:center;justify-content:center;gap:0;padding:0}
+.row .mic svg{display:block;flex:none}
+.row .mic .tm:empty{display:none}
+.row .mic.rec{gap:6px}
 .row .send{margin-left:0}
 .mic.rec{background:#E5484D;color:#fff;width:auto;padding:0 12px}
 .tm{font-size:13px}
@@ -128,6 +131,8 @@ textarea{width:100%;border:0;background:transparent;color:var(--ink);font:inheri
 .opt[aria-checked="true"] .sw::after{transform:translateX(18px);background:#0A0A0A}
 .send{margin-left:auto;background:var(--accent);color:#0A0A0A;border:0;border-radius:12px;width:40px;height:36px;font-weight:700}
 .send:disabled{opacity:.4;cursor:default}
+.send.stop{display:grid;place-items:center;padding:0}
+.send.stop svg{display:block}
 .note{text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
 .scrim{display:none}
 @media (max-width:760px){
@@ -539,6 +544,8 @@ setTimeout(end,rm?900:6000);})();
 <script>
 const $=s=>document.querySelector(s);
 const chat=$('#chat'),inp=$('#in'),send=$('#send'),sc=$('#scroll');
+const SEND_HTML=send.innerHTML,STOP_HTML='<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor"/></svg>';
+let activeRun=null;
 const starters=[
  ['Jelaskan konsep','Apa itu inflasi, pakai contoh harga bakso?'],
  ['Bantu menulis kode','Buat fungsi Python untuk validasi NIK'],
@@ -635,32 +642,35 @@ function ask(){
   const t=t0||(oth.length?'Lampiran: '+othN:'Jelaskan isi gambar ini.');
   const shown=t0?(oth.length?t0+'\nLampiran: '+othN:t0):(oth.length?t:'');
   const thumbs=ims.map(a=>a.th||a.img).slice(0,4);
+  const isNew=!cur;
   if(!cur){chat.innerHTML='';const ti=mkTitle(t);convTitle[view]=ti;$('#title').textContent=ti;
     cur={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),view:view,title:ti,full:t.replace(/\s+/g,' ').trim().slice(0,300),msgs:[],pin:false,ts:Date.now()};convs.unshift(cur);inp.placeholder=MODES[view].ph2||MODES[view].ph;renderHist()}
-  const c=cur;c.msgs.push(thumbs.length?{r:'u',t:shown,imgs:thumbs}:{r:'u',t:shown});c.ts=Date.now();saveConvs();
+  const c=cur;const um=thumbs.length?{r:'u',t:shown,imgs:thumbs}:{r:'u',t:shown};c.msgs.push(um);c.ts=Date.now();saveConvs();
   if(!user){guestBump();const sisa=GUEST_LIMIT-guestUsed();if(sisa<=2)setTimeout(()=>toast(sisa>0?'Sisa '+sisa+' chat gratis. Masuk untuk tanpa batas':'Ini chat gratis terakhirmu. Masuk untuk tanpa batas'),300)}
   if(!user&&!window._gw){window._gw=1;setTimeout(()=>toast('Kamu belum masuk, obrolan ini tidak akan disimpan'),500)}
-  n++;add('u',shown,thumbs);window._sent=att.slice();att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
+  n++;const ub=add('u',shown,thumbs);const sentAtt=att.slice();window._sent=att.slice();att.length=0;renderAtt();inp.value='';grow();busy=true;
+  const run={c:c,um:um,ub:ub,b:null,t0:t0,att:sentAtt,isNew:isNew,fctx:FCTX.get(c)||null,abort:()=>{},stopped:false,committed:false};activeRun=run;syncSend();
   const b=add('b','<span class="think"><span class="atom" aria-label="Memuat"><span class="atom-in"><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="core"></span></span></span><b>Waiting for replay</b></span>');
+  run.b=b;
   const model=$('#model').value;
   const tg=webOn?['Pencarian web']:[];
   const acts='<div class="acts"><button>Salin</button><button>Ulangi</button><button>Suka</button></div>';
   const fin=copy=>{
     if(!b.querySelector('.acts'))b.insertAdjacentHTML('beforeend',acts);
     b.querySelector('.acts').firstChild.onclick=e=>{try{navigator.clipboard.writeText(copy)}catch(_){};e.target.textContent='Tersalin'};
-    busy=false;send.disabled=!inp.value.trim();sc.scrollTop=sc.scrollHeight;
+    busy=false;if(activeRun===run)activeRun=null;syncSend();sc.scrollTop=sc.scrollHeight;
   };
   const done=(html,copy)=>{b.innerHTML=html;fin(copy)};
   
   const hasAtt=(window._sent||[]).length>0||/Lampiran: /.test(shown+t);
   const doImg=ip=>{
-    const ct=new AbortController(),tm=setTimeout(()=>ct.abort(),60000);
-    genImage(ip,ct.signal).then(url=>{
+    const ct=new AbortController(),tm=setTimeout(()=>ct.abort(),60000);run.abort=()=>ct.abort();
+    genImage(ip,ct.signal).then(url=>{if(run.stopped)return;
       const nm='gambar-'+new Date().toISOString().slice(0,10)+'-'+Math.random().toString(36).slice(2,5)+'.jpg',id='a'+Date.now().toString(36)+'i';
       arts.unshift({id:id,name:nm,content:url,img:true,ts:Date.now(),from:c.title,prompt:ip});saveArts();
       c.msgs.push({r:'b',t:'Gambar: '+ip,art:id});c.ts=Date.now();saveConvs();
-      fillImg(b,url,nm);busy=false;send.disabled=!inp.value.trim();sc.scrollTop=sc.scrollHeight;toast('Gambar disimpan di Artefak');
-    }).catch(e=>{const em='Maaf, gambar gagal dibuat: '+(e.name==='AbortError'?'waktu habis':e.message);c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')}).finally(()=>clearTimeout(tm));
+      fillImg(b,url,nm);busy=false;if(activeRun===run)activeRun=null;syncSend();sc.scrollTop=sc.scrollHeight;toast('Gambar disimpan di Artefak');
+    }).catch(e=>{if(run.stopped)return;const em='Maaf, gambar gagal dibuat: '+(e.name==='AbortError'?'waktu habis':e.message);c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')}).finally(()=>clearTimeout(tm));
   };
   const ip=hasAtt?null:imgPrompt(t);
   if(ip!==null&&IMG_URL){doImg(ip);return}
@@ -669,14 +679,14 @@ function ask(){
     return;
   }
   
-  const ctl=new AbortController();let to;
+  const ctl=new AbortController();let to;run.abort=()=>ctl.abort();
   const arm=()=>{clearTimeout(to);to=setTimeout(()=>ctl.abort(),150000)};
   const onVis=()=>{if(document.hidden)clearTimeout(to);else arm()};
   document.addEventListener('visibilitychange',onVis);arm();wlOn();
   const heavy=isHeavy(t,hasAtt);b.dataset.hv=heavy?'1':'0';if(heavy)nusaRun(b,heavy);
   proxyCall(JSON.stringify({stream:heavy,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined)arm()})
-    .then(d=>nusaFinal(b,heavy).then(()=>d)).then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
-    .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
+    .then(d=>nusaFinal(b,heavy).then(()=>d)).then(d=>{if(run.stopped)return;const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}run.committed=true;syncSend();c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
+    .catch(e=>{if(run.stopped)return;if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>{clearTimeout(to);document.removeEventListener('visibilitychange',onVis);wlOff()});
 }
 /* panggil Worker; ulangi otomatis (maks 3x) kalau server sibuk/error sementara */
@@ -943,10 +953,34 @@ function addHist(t){
   const h=$('#hist');const x=document.createElement('button');x.textContent=t;
   h.querySelectorAll('button.on').forEach(e=>e.classList.remove('on'));x.className='on';const f=h.querySelector('button:not(.pin)');h.insertBefore(x,f);curHist=x;
 }
-function grow(){inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,140)+'px';send.disabled=busy||att.some(a=>a.busy)||(!inp.value.trim()&&!att.length)}
+function canStop(){return busy&&!!activeRun&&!activeRun.stopped&&!activeRun.committed}
+function syncSend(){
+  const st=canStop();
+  if(send.classList.contains('stop')!==st){send.classList.toggle('stop',st);send.innerHTML=st?STOP_HTML:SEND_HTML;send.setAttribute('aria-label',st?'Hentikan':'Kirim')}
+  send.disabled=busy?!st:(att.some(a=>a.busy)||(!inp.value.trim()&&!att.length));
+}
+function guestUnbump(){try{localStorage.setItem('nusa_guest',JSON.stringify({d:guestKey(),n:Math.max(0,guestUsed()-1)}))}catch(e){}}
+/* Stop saat AI bekerja: batalkan request, hapus pesan + balasan yang sedang berjalan, kembalikan teks ke kolom ketik agar bisa diedit */
+function stopRun(){
+  const r=activeRun;if(!r||!canStop())return;
+  r.stopped=true;try{r.abort()}catch(e){}
+  const th=r.b&&r.b.querySelector('.think');if(th)th._stop=1;
+  [r.b,r.ub].forEach(x=>{const m=x&&x.closest('.msg');if(m)m.remove()});
+  const c=r.c,i=c.msgs.lastIndexOf(r.um);if(i>=0)c.msgs.splice(i);
+  if(r.fctx)FCTX.set(c,r.fctx);else FCTX.delete(c);
+  if(!user)guestUnbump();
+  window._sent=null;att.length=0;r.att.forEach(a=>att.push(a));renderAtt();
+  activeRun=null;busy=false;
+  if(!c.msgs.length&&r.isNew){convs=convs.filter(x=>x!==c);saveConvs();n=0;hero()}
+  else{n=Math.max(0,n-1);saveConvs();renderHist()}
+  inp.value=r.t0;grow();
+  inp.focus();try{inp.setSelectionRange(inp.value.length,inp.value.length)}catch(e){}
+}
+function grow(){inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,140)+'px';syncSend()}
 inp.addEventListener('input',grow);
 inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask()}});
-send.onclick=ask;
+send.onclick=()=>{if(busy)stopRun();else ask()};
+send.addEventListener('mousedown',e=>{if(busy)e.preventDefault()});
 
 $('#new').onclick=()=>{if(view==='project'||view==='latih')setView(last);n=0;hero();close()};
 const side=$('#side'),scrim=$('#scrim');
