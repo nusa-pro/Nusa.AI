@@ -740,6 +740,11 @@ function fileInfo(seg,prev){
 function isSrvJs(f){return /^(server|worker)/i.test(f.n)||/\brequire\s*\(|module\.exports|process\.env|from\s+['"](express|http|https|fs|path|mongoose|node:[\w\/]+)['"]|addEventListener\(\s*['"]fetch['"]|export\s+default\s*\{|\bapp\.(listen|use|get|post|put|delete)\(/.test(f.code)}
 const NAVRT=`<script>(function(){function show(n,k){var ps=document.querySelectorAll('[data-page]'),f=null,i;for(i=0;i<ps.length;i++)if(ps[i].getAttribute('data-page')===n)f=ps[i];if(!f)return false;for(i=0;i<ps.length;i++)ps[i].hidden=ps[i]!==f;window.scrollTo(0,0);if(!k)try{history.replaceState(null,'','#'+n)}catch(e){}return true}document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;var h=a.getAttribute('href').slice(1);if(h&&show(h))e.preventDefault()});window.addEventListener('hashchange',function(){show(location.hash.slice(1)||'index',1)});if(location.hash.length>1)show(location.hash.slice(1),1)})()<\/script>`;
 function mergeFiles(fs){
+  const r=mergeFiles0(fs),last=fs[fs.length-1];
+  if(last&&last.cut){const h=r.find(x=>x===last||(x.code&&x.code.indexOf(last.code.slice(0,200))>=0));if(h)h.cut=true}
+  return r;
+}
+function mergeFiles0(fs){
   const pages=fs.filter(f=>f.ex==='html'),css=fs.filter(f=>f.ex==='css');
   const js=fs.filter(f=>/^jsx?$/.test(f.ex)&&!isSrvJs(f));
   const rest=fs.filter(f=>pages.indexOf(f)<0&&css.indexOf(f)<0&&js.indexOf(f)<0).map(f=>/^jsx?$/.test(f.ex)?Object.assign({},f,{l:''}):f);
@@ -783,14 +788,15 @@ function mergeFiles(fs){
   return [{n:main.n,ex:'html',l:'html',c:web.length,code:out}].concat(rest);
 }
 function fileCard(r){
+  const bad=!!r.cut||(/<html|<!doctype/i.test(r.code)&&!/<\/html\s*>/i.test(r.code));
   const sv=function(d){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'};
-  return '<div class="fc" data-n="'+r.n+'"'+(r.l?' data-lang="'+r.l+'"':'')+'><button class="fo" type="button" data-a="open">'+sv('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>')+'<span class="fn"><b>'+r.n+'</b><small>'+r.ex.toUpperCase()+(r.c>1?' \u00B7 '+r.c+' file digabung':'')+' \u00B7 '+r.code.split('\n').length+' baris</small></span></button><button class="fa" type="button" data-a="copy" aria-label="Salin">'+sv('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>')+'</button>'+(r.l?'<button class="fa" type="button" data-a="run" aria-label="Preview">'+sv('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')+'</button>':'')+'<pre>'+esc(r.code)+'</pre></div>';
+  return '<div class="fc" data-n="'+r.n+'"'+(r.l?' data-lang="'+r.l+'"':'')+'><button class="fo" type="button" data-a="open">'+sv('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>')+'<span class="fn"><b>'+r.n+'</b><small>'+r.ex.toUpperCase()+(r.c>1?' \u00B7 '+r.c+' file digabung':'')+' \u00B7 '+r.code.split('\n').length+' baris'+(bad?' \u00B7 terpotong':'')+'</small></span></button><button class="fa" type="button" data-a="copy" aria-label="Salin">'+sv('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>')+'</button>'+(r.l&&!bad?'<button class="fa" type="button" data-a="run" aria-label="Preview">'+sv('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')+'</button>':'')+'<pre>'+esc(r.code)+'</pre></div>';
 }
 function renderReply(x){
   const fs=[],o=[];let pv='';
   const tx=t=>esc(t).replace(/^\n+|\n+$/g,'').replace(/^#{1,6}[ \t]*(.+)$/gm,'<b>$1</b>').replace(/^&gt;[ \t]?/gm,'').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>');
-  x.split('```').forEach((seg,k)=>{
-    if(k%2){const f=fileInfo(seg,pv);if(f.file)fs.push(f);else o.push({h:'<pre>'+esc(f.code)+'</pre>'})}
+  x.split('```').forEach((seg,k,ar)=>{
+    if(k%2){const f=fileInfo(seg,pv);f.cut=k===ar.length-1&&ar.length%2===0;if(f.file)fs.push(f);else o.push({h:'<pre>'+esc(f.code)+'</pre>'})}
     else{pv=seg;const h=tx(seg);if(h)o.push({h:h,t:1})}
   });
   if(fs.length)o.push({h:mergeFiles(fs).map(fileCard).join('')});
@@ -1442,6 +1448,7 @@ function cRun(){
   if(e==='py'||e==='svg'){cif.removeAttribute('src');cif.srcdoc=runDoc(cF[cA],e);$('#curl').textContent=(e==='py'?'Menjalankan Python · ':'Preview · ')+cA;return}
   if(cF[cPv]===undefined)cPv=cF['index.html']!==undefined?'index.html':Object.keys(cF).find(n=>/\.html?$/i.test(n));
   if(!cPv){cif.removeAttribute('src');cif.srcdoc='<body style="font-family:sans-serif;padding:20px;color:#444">Belum ada berkas .html</body>';$('#curl').textContent='Preview';return}
+  const h0=cF[cPv]||'';if(/<html|<!doctype/i.test(h0)&&!/<\/html\s*>/i.test(h0)){cif.removeAttribute('src');cif.srcdoc='<body style="font-family:sans-serif;padding:20px;color:#444;background:#fff">Kode HTML belum lengkap (terpotong, tidak ada penutup &lt;/html&gt;), jadi pratinjau tidak bisa ditampilkan.</body>';$('#curl').textContent='Kode terpotong';return}
   if(cDk){cif.removeAttribute('srcdoc');cif.src='/proyek/'+encodeURIComponent(cPv)+'?t='+Date.now()}else cif.srcdoc=cBuild(cPv,true);
   $('#curl').textContent=(cDk?location.host+'/proyek/':'Preview · ')+cPv;
 }
