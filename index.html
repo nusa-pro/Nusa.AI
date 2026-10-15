@@ -722,13 +722,6 @@ function typeReply(b,text,fin){
   }
   requestAnimationFrame(step);
 }
-function codeBlock(seg){
-  const m=seg.match(/^([^\n]*)\n/),info=m?m[1].trim():'',has=m&&/^[\w+#.\-]*$/.test(info),code=(has?seg.slice(m[0].length):seg).replace(/\n$/,''),l=runLang(info);
-  const lg=(info.split(/\s+/)[0]||'').toLowerCase().replace(/[^a-z0-9+#.\-]/g,''),fm=(info.match(/[\w\-]+\.[a-z0-9]{1,5}\b/i)||[])[0];
-  let ex=EXT[lg]||lg;if(!/^[a-z0-9]{1,5}$/.test(ex))ex='txt';
-  const nm=fm||('kode.'+ex),sv=function(d){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'};
-  return '<div class="fc" data-n="'+nm+'"'+(l?' data-lang="'+l+'"':'')+'><button class="fo" type="button" data-a="open">'+sv('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>')+'<span class="fn"><b>'+nm+'</b><small>'+ex.toUpperCase()+' \u00B7 '+code.split('\n').length+' baris</small></span></button><button class="fa" type="button" data-a="copy" aria-label="Salin">'+sv('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>')+'</button>'+(l?'<button class="fa" type="button" data-a="run" aria-label="Preview">'+sv('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')+'</button>':'')+'<pre'+(l?' data-lang="'+l+'"':'')+'>'+esc(code)+'</pre></div>';
-}
 const WEBX=/^(html|css|jsx?|tsx?|json|py|svg|php|java|kt|c|cpp|cs|go|rs|sql|xml|ya?ml|sh|rb|swift|md)$/;
 function fileInfo(seg,prev){
   const m=seg.match(/^([^\n]*)\n/),info=m?m[1].trim():'',has=m&&/^[\w+#.\-]*$/.test(info),code=(has?seg.slice(m[0].length):seg).replace(/\n$/,'');
@@ -791,7 +784,7 @@ function mergeFiles0(fs){
 function fileCard(r){
   const bad=!!r.cut||(/<html|<!doctype/i.test(r.code)&&!/<\/html\s*>/i.test(r.code));
   const sv=function(d){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'};
-  return '<div class="fc" data-n="'+r.n+'"'+(r.l?' data-lang="'+r.l+'"':'')+'><button class="fo" type="button" data-a="open">'+sv('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>')+'<span class="fn"><b>'+r.n+'</b><small>'+r.ex.toUpperCase()+(r.c>1?' \u00B7 '+r.c+' file digabung':'')+' \u00B7 '+r.code.split('\n').length+' baris'+(bad?' \u00B7 terpotong':'')+'</small></span></button><button class="fa" type="button" data-a="copy" aria-label="Salin">'+sv('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>')+'</button>'+(r.l&&!bad?'<button class="fa" type="button" data-a="run" aria-label="Preview">'+sv('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')+'</button>':'')+'<pre>'+esc(r.code)+'</pre></div>';
+  return '<div class="fc" data-n="'+r.n+'"'+(r.l?' data-lang="'+r.l+'"':'')+'><div class="fo">'+sv('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>')+'<span class="fn"><b>'+r.n+'</b><small>'+r.ex.toUpperCase()+(r.c>1?' \u00B7 '+r.c+' file digabung':'')+' \u00B7 '+r.code.split('\n').length+' baris'+(bad?' \u00B7 terpotong':'')+'</small></span></div><button class="fa" type="button" data-a="copy" aria-label="Salin">'+sv('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>')+'</button>'+'<button class="fa" type="button" data-a="code" aria-label="Lihat kode">'+sv('<path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/><path d="M13.5 5l-3 14"/>')+'</button>'+'<pre>'+esc(r.code)+'</pre></div>';
 }
 function renderReply(x){
   const fs=[],o=[];let pv='';
@@ -1085,8 +1078,8 @@ window.addEventListener('message',e=>{const d=e.data;if(d&&d.nusaRun&&e.source==
 $('#rnc').onclick=()=>{$('#rnm').classList.remove('show');$('#rnf').srcdoc=''};
 $('#chat').addEventListener('click',e=>{const f=e.target.closest('.fc');if(!f)return;const code=f.querySelector('pre').textContent,nm=f.dataset.n,a=(e.target.closest('[data-a]')||{dataset:{}}).dataset.a;
   if(a==='copy'){navigator.clipboard.writeText(code).then(()=>toast('Disalin'),()=>toast('Tidak bisa menyalin di sini'));return}
-  if(a==='run'){runCode(code,f.dataset.lang,nm);return}
-  openArt(arts.find(x=>x.content===code)||{id:'t',name:nm,content:code,ts:Date.now()})});
+  if(a==='code'){cImport([{name:nm,content:code}]).then(g=>{if(g.length){openCode();toast(g[0]+' dibuka di Code')}else toast('Nama berkas tidak valid')})}
+});
 /* gambar dari AI */
 function dlUrl(u,n){const l=document.createElement('a');l.href=u;l.download=n;document.body.appendChild(l);l.click();l.remove()}
 function fillImg(b,url,name){
@@ -1170,10 +1163,18 @@ function styleNote(c){
   if(/\b(anjir|njir|anjay|wkwk\w*|cuy|woi)\b/i.test(all))n+=' Boleh sedikit gaul.';
   return '\n\n[Catatan gaya untuk jawabanmu: '+n+']';
 }
+const WEBQ=/(\bweb(site)?\b|situs|landing|html|css|desain|\bui\b|\bux\b|frontend|portofolio|portfolio|dashboard|halaman|template|\bindex\b|toko online|top ?up)/i;
+const DESIGN_GUIDE=['[PANDUAN DESAIN WEB, wajib diikuti saat membuat tampilan web:',
+'FORMAT: jawab dengan 2 sampai 3 kalimat penjelasan, lalu SATU blok kode ```html berisi file index.html lengkap (CSS di dalam <style>, JS di dalam <script>). Kode harus selesai sampai </html>, jangan terpotong: hemat panjang, tanpa komentar panjang, tanpa gambar base64, maksimal sekitar 400 baris. Jangan pakai emoji atau simbol hiasan di teks jawaban.',
+'TAMPILAN: mobile-first dan responsif (meta viewport, flex atau grid, ukuran dengan clamp). Pakai variabel CSS untuk satu palet 2 sampai 3 warna dengan kontras teks yang jelas terbaca. Pilih satu pasangan font dari Google Fonts (judul dan isi) dengan font cadangan. Spasi konsisten (kelipatan 8px), sudut membulat dan bayangan yang halus. Hindari gradien biru-ungu yang pasaran dan hindari semua teks rata tengah, variasikan tata letak.',
+'STRUKTUR: header atau navbar yang rapi, hero dengan judul kuat dan tombol ajakan yang jelas, bagian utama berupa kartu dalam grid, lalu bagian pelengkap sesuai topik (harga, testimoni, FAQ, kontak) dan footer. Isi dengan konten nyata dalam bahasa Indonesia sesuai topik, bukan lorem ipsum.',
+'DETAIL: tombol dan tautan punya efek hover, active, dan focus; transisi halus sekitar 0,2 detik dan hormati prefers-reduced-motion. Ikon pakai SVG inline sederhana, bukan emoji dan bukan gambar luar. Tautan antar bagian atau halaman pakai #id. Semua tombol harus benar-benar berfungsi dengan JavaScript sederhana, dan form jangan mengirim ke server.',
+']'].join('\n');
 function buildMsgs(c){
   const o=apiHist(c),ins=personaText(),last=o[o.length-1];
   if(!last||last.role!=='user')return o;
   const q=last.content;let pre='';
+  {const pb=o.length>1?String(o[o.length-2].content||''):'';if(WEBQ.test(q)||/<!doctype|<html/i.test(pb))pre+=DESIGN_GUIDE+'\n\n'}
   if(ins)pre+='[INSTRUKSI DARI PEMILIK NUSA, wajib diikuti dalam jawabanmu:\n'+ins+']\n\n';
   if(kb.length){
     let h=retrieve(q);
@@ -1507,7 +1508,7 @@ function cOpen(n){
   if(!n||cF[n]===undefined){cA='';cta.readOnly=true;cta.placeholder='Belum ada berkas. Tekan titik tiga di atas, lalu pilih Unggah berkas atau Berkas baru.';cta.value='';cLn();cList();cSave();if(cOn)cStop();cView(false);$('#curl').textContent='Belum ada berkas';return}
   cA=n;if(/^html?$/.test(cExt(n)))cPv=n;cta.readOnly=false;
   cta.value=cF[n];cta.scrollTop=0;cLn();cList();cSave();
-  if(cMob()||cExt(n)==='py'){if(cOn)cStop();cView(false);$('#curl').textContent='Tekan Run untuk menjalankan '+n}else cRun();
+  if(cMob()||cExt(n)==='py'){if(cOn)cStop();cView(false);$('#curl').textContent='Tekan ikon preview untuk menjalankan '+n}else cRun();
 }
 function cAdd(){dialog('Berkas baru','Contoh: app.js, halaman.html, data.json, tes.py','','Buat',v=>{if(!cOk(v))return toast('Nama tidak valid, contoh: app.js');if(cF[v]!==undefined)return toast('Nama sudah dipakai');cF[v]=cTpl(v);cPut(v,cF[v]);cOpen(v)})}
 function cRen(){if(!cA)return toast('Belum ada berkas');dialog('Ganti nama berkas','',cA,'Simpan',async v=>{const o=cA;if(v===o)return;if(!cOk(v))return toast('Nama tidak valid');if(cF[v]!==undefined)return toast('Nama sudah dipakai');
@@ -1519,7 +1520,7 @@ async function cDisk(){
     cDk=true;if(Object.keys(j).length)cF=j;else await Promise.all(Object.entries(cF).map(([n,v])=>cPut(n,v)));
     if(cF[cA]===undefined)cA=Object.keys(cF)[0]||'';cPv=cF['index.html']!==undefined?'index.html':cA;toast('Terhubung ke localhost: folder proyek/')}catch(_){}
 }
-async function openCode(){ceEl.classList.add('show');await cEnsure();if(cF[cA]===undefined){cOpen(Object.keys(cF)[0]);return}cta.readOnly=false;cta.value=cF[cA];cLn();cList();cView(false);if(cMob()||cExt(cA)==='py'){cOn=false;cBtn();cco.innerHTML='';$('#curl').textContent='Tekan Run untuk menjalankan '+cA}else cRun()}
+async function openCode(){ceEl.classList.add('show');await cEnsure();if(cF[cA]===undefined){cOpen(Object.keys(cF)[0]);return}cta.readOnly=false;cta.value=cF[cA];cLn();cList();cView(false);if(cMob()||cExt(cA)==='py'){cOn=false;cBtn();cco.innerHTML='';$('#curl').textContent='Tekan ikon preview untuk menjalankan '+cA}else cRun()}
 function cIns(t,back){const a=cta.selectionStart;cta.setRangeText(t,a,cta.selectionEnd,'end');if(back)cta.selectionStart=cta.selectionEnd=a+t.length-back;cta.focus();cta.oninput()}
 cta.oninput=()=>{const n=cA,v=cta.value;cF[n]=v;cLn();cSave();clearTimeout(cT);cT=setTimeout(async()=>{await cPut(n,v);if(cOn&&cExt(n)!=='py')cRun()},400)};
 cta.onscroll=()=>{cln.scrollTop=cta.scrollTop};
@@ -1534,8 +1535,8 @@ addEventListener('message',e=>{
   if(d.nc===2){cPv=String(d.f).split('/').pop();cRun();return}
   if(d.nc===1||d.nusaRun){const l=document.createElement('div');l.className='k-'+d.t;l.textContent=d.m;cco.appendChild(l);cco.scrollTop=1e9}
 });
-function cBtn(){$('#cr').innerHTML=(cOn?'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>':'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l12-7z"/></svg>')+'Run'}
-function cStop(){clearTimeout(cT);cOn=false;cBtn();cco.innerHTML='';cif.removeAttribute('src');cif.srcdoc='<body style="margin:0;background:#fff"></body>';$('#curl').textContent='Dihentikan · tekan Run untuk menjalankan';cView(false)}
+function cBtn(){const ic=function(d){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'},ey='<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',b=$('#cr');b.innerHTML=ic(cOn?ey+'<path d="M3 3l18 18"/>':ey);b.setAttribute('aria-label',cOn?'Tutup preview':'Preview')}
+function cStop(){clearTimeout(cT);cOn=false;cBtn();cco.innerHTML='';cif.removeAttribute('src');cif.srcdoc='<body style="margin:0;background:#fff"></body>';$('#curl').textContent='Dihentikan · tekan ikon preview untuk menjalankan';cView(false)}
 $('#cr').onclick=()=>{if(cOn){cStop();return}clearTimeout(cT);if(cF[cA]!==undefined)cPut(cA,cF[cA]);cRun();cView(true)};
 const cMn=$('#cm');$('#cmb').onclick=e=>{e.stopPropagation();cMn.classList.toggle('show')};ceEl.addEventListener('click',()=>cMn.classList.remove('show'));
 const cUp=$('#cup');
