@@ -196,6 +196,11 @@ textarea,input,.bub{-webkit-user-select:text;user-select:text}
 .sh{color:var(--muted);font-size:14px;margin:18px 4px 4px}
 .atts{display:flex;gap:8px;overflow-x:auto;padding:4px 4px 0}
 .atts:empty{display:none}
+.uimgs{display:flex;flex-wrap:wrap;gap:6px;margin:-4px -6px 6px}.uimgs:last-child{margin-bottom:-4px}
+.uimgs img{display:block;max-width:100%;max-height:280px;border-radius:12px;object-fit:cover;cursor:zoom-in}
+.uimgs img:not(:only-child){width:calc(50% - 3px);height:130px;max-height:none}
+.lb{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:12px;cursor:zoom-out}
+.lb img{max-width:100%;max-height:100%;border-radius:10px;object-fit:contain}
 .at.err{outline:1px solid rgba(255,107,107,.55)}.at.err .an{color:#FF8A8A}
 .at{position:relative;flex:none;background:var(--raise);border-radius:12px;padding:6px 30px 6px 6px;display:flex;align-items:center;gap:8px;max-width:210px}
 .at img{width:38px;height:38px;object-fit:cover;border-radius:8px}
@@ -543,7 +548,7 @@ const LSK='nusa_convs_v1';
 let cloudOn=false,cloudIds=new Set(),pushed={},pushT=null,cloudBusy=false,cloudWarned=false;
 let sw=0;function saveConvs(){if(!user)return; /* tamu: riwayat tidak disimpan */try{localStorage.setItem(LSK,JSON.stringify(convs.slice(0,60)))}catch(e){if(!sw++)toast('Penyimpanan browser mati, obrolan tidak bisa disimpan')}if(cloudOn)schedPush()}
 function loadConvs(){if(!user){convs=[];try{localStorage.removeItem(LSK)}catch(e){}return}try{const a=JSON.parse(localStorage.getItem(LSK)||'[]');convs=Array.isArray(a)?a.filter(c=>c&&c.id&&typeof c.title==='string'&&Array.isArray(c.msgs)&&c.view==='chat'):[]}catch(e){convs=[]}}
-function apiHist(c){const o=[];c.msgs.forEach((m,i)=>{if(m.err)return;const nx=c.msgs[i+1];if(m.r==='u'&&nx&&nx.err)return;o.push({role:m.r==='u'?'user':'assistant',content:m.t})});return o.slice(-20)}
+function apiHist(c){const o=[];c.msgs.forEach((m,i)=>{if(m.err)return;const nx=c.msgs[i+1];if(m.r==='u'&&nx&&nx.err)return;const ni=(m.imgs||[]).length,isLast=i===c.msgs.length-1;let tx=m.t||(ni?'Jelaskan isi gambar ini.':'');if(ni&&!isLast)tx+='\n[Pengguna melampirkan '+ni+' gambar di pesan ini]';o.push({role:m.r==='u'?'user':'assistant',content:tx})});return o.slice(-20)}
 const ACTS='<div class="acts"><button>Salin</button><button>Ulangi</button><button>Suka</button></div>';
 const expd=new Set();
 const wc=t=>(t||'').trim().split(/\s+/).filter(Boolean).length;
@@ -584,14 +589,14 @@ function openConv(id){
   chat.innerHTML='';
   c.msgs.forEach(m=>{
     if(typeof m.t!=='string')return;
-    if(m.r==='u')add('u',m.t);
+    if(m.r==='u')add('u',m.t,m.imgs);
     else if(m.art){const b=add('b',''),a=arts.find(x=>x.id===m.art);if(a)fillImg(b,a.content,a.name);else b.textContent='(gambar sudah dihapus dari Artefak)'}
     else{const b=add('b',m.err?esc(m.t):renderReply(m.t));
       if(!m.err){b.insertAdjacentHTML('beforeend',ACTS);b.querySelector('.acts').firstChild.onclick=e=>{try{navigator.clipboard.writeText(m.t)}catch(_){};e.target.textContent='Tersalin'}}}
   });
   renderHist();renderPop();grow();close();sc.scrollTop=sc.scrollHeight;
   {const lq=c.msgs[c.msgs.length-1];
-   if(lq&&lq.r==='u'&&typeof lq.t==='string'&&lq.t.indexOf('Lampiran:')<0&&PROXY_URL&&!busy&&Date.now()-(c.ts||0)<900000&&chat.lastElementChild){
+   if(lq&&lq.r==='u'&&typeof lq.t==='string'&&lq.t.indexOf('Lampiran:')<0&&!(lq.imgs&&lq.imgs.length)&&PROXY_URL&&!busy&&Date.now()-(c.ts||0)<900000&&chat.lastElementChild){
      c.msgs.pop();saveConvs();chat.lastElementChild.remove();n=Math.max(0,n-1);inp.value=lq.t;grow();toast('Jawaban sempat terputus, mengirim ulang');setTimeout(ask,400)}}
 }
 const MODES={
@@ -605,10 +610,14 @@ function hero(){
   chat.querySelector('h1').textContent=Array.isArray(m.h)?m.h[Math.floor(Math.random()*m.h.length)]:m.h;chat.querySelector('p').textContent=m.p;
   inp.placeholder=m.ph;convTitle[view]=m.t;$('#title').textContent=m.t;curHist=null;cur=null;renderHist();
 }
-function add(role,text){
+function openLb(s){const o=document.createElement('div');o.className='lb';const i=document.createElement('img');i.src=s;i.alt='';o.appendChild(i);o.onclick=()=>o.remove();document.body.appendChild(o)}
+function add(role,text,imgs){
   const m=document.createElement('div');m.className='msg '+(role==='u'?'u':'b');
   const b=document.createElement('div');b.className='bub';
-  if(role==='u')b.textContent=text;else b.innerHTML=text;
+  if(role==='u'){
+    if(imgs&&imgs.length){const g=document.createElement('div');g.className='uimgs';imgs.forEach(src=>{const im=document.createElement('img');im.src=src;im.alt='Gambar terlampir';im.onclick=()=>openLb(src);g.appendChild(im)});b.appendChild(g)}
+    if(text){const sp=document.createElement('span');sp.textContent=text;b.appendChild(sp)}
+  }else b.innerHTML=text;
   m.appendChild(b);chat.appendChild(m);sc.scrollTop=sc.scrollHeight;return b;
 }
 function esc(t){return t.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
@@ -619,14 +628,16 @@ function guestUsed(){try{const d=JSON.parse(localStorage.getItem('nusa_guest')||
 function guestBump(){try{localStorage.setItem('nusa_guest',JSON.stringify({d:guestKey(),n:guestUsed()+1}))}catch(e){}}
 function ask(){
   const t0=inp.value.trim();if((!t0&&!att.length)||busy)return;if(att.some(a=>a.busy)){toast('Lampiran masih dibaca, tunggu sebentar');return}
-  if(!user&&guestUsed()>=GUEST_LIMIT){lm.classList.add('show');toast('Batas chat tamu hari ini habis. Masuk dulu biar bebas ngobrol');return}const t=t0||('Lampiran: '+att.map(a=>a.n).join(', '));
-  const shown=t0&&att.length?t+'\nLampiran: '+att.map(a=>a.n).join(', '):t;
+  if(!user&&guestUsed()>=GUEST_LIMIT){lm.classList.add('show');toast('Batas chat tamu hari ini habis. Masuk dulu biar bebas ngobrol');return}const ims=att.filter(a=>a.img),oth=att.filter(a=>!a.img),othN=oth.map(a=>a.n).join(', ');
+  const t=t0||(oth.length?'Lampiran: '+othN:'Jelaskan isi gambar ini.');
+  const shown=t0?(oth.length?t0+'\nLampiran: '+othN:t0):(oth.length?t:'');
+  const thumbs=ims.map(a=>a.th||a.img).slice(0,4);
   if(!cur){chat.innerHTML='';const ti=mkTitle(t);convTitle[view]=ti;$('#title').textContent=ti;
     cur={id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),view:view,title:ti,full:t.replace(/\s+/g,' ').trim().slice(0,300),msgs:[],pin:false,ts:Date.now()};convs.unshift(cur);inp.placeholder=MODES[view].ph2||MODES[view].ph;renderHist()}
-  const c=cur;c.msgs.push({r:'u',t:shown});c.ts=Date.now();saveConvs();
+  const c=cur;c.msgs.push(thumbs.length?{r:'u',t:shown,imgs:thumbs}:{r:'u',t:shown});c.ts=Date.now();saveConvs();
   if(!user){guestBump();const sisa=GUEST_LIMIT-guestUsed();if(sisa<=2)setTimeout(()=>toast(sisa>0?'Sisa '+sisa+' chat gratis. Masuk untuk tanpa batas':'Ini chat gratis terakhirmu. Masuk untuk tanpa batas'),300)}
   if(!user&&!window._gw){window._gw=1;setTimeout(()=>toast('Kamu belum masuk, obrolan ini tidak akan disimpan'),500)}
-  n++;add('u',shown);window._sent=att.slice();att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
+  n++;add('u',shown,thumbs);window._sent=att.slice();att.length=0;renderAtt();inp.value='';grow();busy=true;send.disabled=true;
   const b=add('b','<span class="think"><span class="atom" aria-label="Memuat"><span class="atom-in"><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="ring"><span class="orb"><i></i></span></span><span class="core"></span></span></span><b>Nusa started..</b></span>');
   const model=$('#model').value;
   const tg=webOn?['Pencarian web']:[];
@@ -638,7 +649,7 @@ function ask(){
   };
   const done=(html,copy)=>{b.innerHTML=html;fin(copy)};
   
-  const hasAtt=/Lampiran: /.test(shown+t);
+  const hasAtt=(window._sent||[]).length>0||/Lampiran: /.test(shown+t);
   const doImg=ip=>{
     const ct=new AbortController(),tm=setTimeout(()=>ct.abort(),60000);
     genImage(ip,ct.signal).then(url=>{
@@ -659,7 +670,7 @@ function ask(){
   const arm=()=>{clearTimeout(to);to=setTimeout(()=>ctl.abort(),150000)};
   const onVis=()=>{if(document.hidden)clearTimeout(to);else arm()};
   document.addEventListener('visibilitychange',onVis);arm();wlOn();
-  proxyCall(JSON.stringify({stream:true,messages:buildMsgs(c).map(m=>({role:m.role,content:m.content}))}),ctl.signal,o=>{if(o&&o.n!==undefined){arm();const lb=b.querySelector('.think b');if(lb&&o.n>0)lb.textContent='waiting for a reply.. '+o.n.toLocaleString('id-ID')+' karakter'}})
+  proxyCall(JSON.stringify({stream:true,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined){arm();const lb=b.querySelector('.think b');if(lb&&o.n>0)lb.textContent='waiting for a reply.. '+o.n.toLocaleString('id-ID')+' karakter'}})
     .then(d=>{const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
     .catch(e=>{if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>{clearTimeout(to);document.removeEventListener('visibilitychange',onVis);wlOff()});
@@ -1128,7 +1139,7 @@ function imgPrompt(t){
 }
 const IMGREF=/(?:belum|tidak|nggak|gak)\s+(?:bisa|dapat|mampu)\s+(?:\w+\s+){0,2}(?:membuat|menghasilkan|menampilkan|menggambar|bikin)\b|asisten teks|text-based/i;
 const shouldImg=(t,a)=>t.length<=200&&new RegExp('\\b('+IMGN+')\\b','i').test(t)&&IMGREF.test(a);
-function shrink(src){return new Promise(ok=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1024/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',.82))};im.onerror=()=>ok(src);im.src=src})}
+function shrink(src,mx,q){return new Promise(ok=>{const im=new Image();im.onload=()=>{const k=Math.min(1,(mx||1024)/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',q||.82))};im.onerror=()=>ok(src);im.src=src})}
 async function genImage(prompt,signal){
   const r=await fetch(IMG_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'image',prompt:prompt}),signal:signal}).catch(e=>{if(e.name==='AbortError')throw e;throw new Error('Worker gambar tidak terjangkau. Cek nama nusa-picture dan deploy-nya.')});
   const d=await r.json().catch(()=>({}));
@@ -1218,7 +1229,7 @@ function buildMsgs(c){
     const imgs=sa.filter(a=>a.img).map(a=>a.img).slice(0,4);
     sa.forEach(a=>{if(a.txt)last.content+='\n\n[ISI FILE '+a.n+':\n'+a.txt+']'});
     sa.forEach(a=>{if(!a.img&&!a.txt)last.content+='\n\n[File '+a.n+' dilampirkan tapi gagal dibaca'+(a.err?': '+a.err:'')+']'});
-    if(imgs.length){last.images=imgs;if(/^Lampiran: /.test(q))last.content=last.content.replace(q,'Jelaskan isi gambar ini.')}
+    if(imgs.length){last.images=imgs;if(/^Lampiran: /.test(q))last.content=last.content.replace(q,'Jelaskan isi gambar ini.');last.content+='\n\n[Pengguna melampirkan '+imgs.length+' gambar. Lihat gambarnya langsung, lalu jawab berdasarkan isi gambar. Jangan menebak kalau gambarnya tidak terlihat jelas.]'}
   }
   return o;
 }
@@ -1292,7 +1303,7 @@ async function readAtt(it,f){
     if(f.type.startsWith('image/')){
       if(f.size>=8388608)throw new Error('Gambar terlalu besar (maks 8 MB)');
       const u=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>no(new Error('Gagal membaca gambar'));r.readAsDataURL(f)});
-      it.img=await shrink(u)}
+      it.img=await shrink(u);it.th=await shrink(it.img,480,.65)}
     else{
       if(!f.size)throw new Error('File kosong');if(f.size>ATT_MAX)throw new Error('File terlalu besar (maks 15 MB)');
       const t=(await attText(f,await f.arrayBuffer())).replace(/\n{3,}/g,'\n\n').trim();
