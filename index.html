@@ -1298,12 +1298,24 @@ async function attText(f,buf){
   for(let i=0;i<n;i++)if(u[i]===0)throw new Error(e==='doc'?'Format .doc lama belum didukung, simpan sebagai .docx':'Format .'+(e||'ini')+' bukan teks, tidak bisa dibaca');
   return new TextDecoder('utf-8').decode(u);
 }
+/* olah gambar lampiran: createImageBitmap -> canvas bergaris latar putih; kalau hasilnya kosong, pakai gambar asli */
+function isBlank(c){try{const t=document.createElement('canvas');t.width=t.height=16;const x=t.getContext('2d');x.drawImage(c,0,0,16,16);const d=x.getImageData(0,0,16,16).data;for(let i=4;i<d.length;i+=4)if(Math.abs(d[i]-d[0])>6||Math.abs(d[i+1]-d[1])>6||Math.abs(d[i+2]-d[2])>6)return false;return true}catch(e){return false}}
+function drawTo(src,mx){const w=src.width,h=src.height;if(!w||!h)return null;const k=Math.min(1,mx/Math.max(w,h)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*k));c.height=Math.max(1,Math.round(h*k));const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(src,0,0,c.width,c.height);return c}
+function loadImg(src){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>ok(im);im.onerror=()=>no(new Error('decode'));im.src=src})}
+async function prepImg(f,u){
+  let c=null;
+  try{if(window.createImageBitmap){const bm=await createImageBitmap(f);c=drawTo(bm,1024);if(bm.close)bm.close();if(c&&isBlank(c))c=null}}catch(e){c=null}
+  if(!c){try{const im=await loadImg(u);c=drawTo(im,1024);if(c&&isBlank(c))c=null}catch(e){c=null}}
+  if(!c)return{img:u,th:u};
+  const img=c.toDataURL('image/jpeg',.75),t=drawTo(c,480);
+  return{img:img,th:t?t.toDataURL('image/jpeg',.65):img}
+}
 async function readAtt(it,f){
   try{
     if(f.type.startsWith('image/')){
       if(f.size>=8388608)throw new Error('Gambar terlalu besar (maks 8 MB)');
       const u=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>no(new Error('Gagal membaca gambar'));r.readAsDataURL(f)});
-      it.img=await shrink(u);it.th=await shrink(it.img,480,.65)}
+      const pr=await prepImg(f,u);it.img=pr.img;it.th=pr.th}
     else{
       if(!f.size)throw new Error('File kosong');if(f.size>ATT_MAX)throw new Error('File terlalu besar (maks 15 MB)');
       const t=(await attText(f,await f.arrayBuffer())).replace(/\n{3,}/g,'\n\n').trim();
