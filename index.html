@@ -84,8 +84,14 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 .bub code{background:#000;border-radius:4px;padding:1px 5px;font-size:.92em}
 .bub pre{background:#000;border-radius:8px;padding:10px;overflow-x:auto;margin:8px 0 0;font-size:14px}
 .qa .qi{margin:0 0 10px;color:var(--muted)}.qq{margin:0 0 14px}.qt{font-weight:600;margin:0 0 8px}
-.qo{display:flex;flex-wrap:wrap;gap:8px}.qo button{background:var(--raise);color:var(--ink);border:0;border-radius:999px;padding:9px 14px;font:inherit;font-size:15px;line-height:1.2;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
-.qo button.on{background:var(--brand);color:var(--brand-ink);font-weight:600}
+.qa .qh{margin:0 0 14px;font-size:14px;color:var(--muted)}
+.qo{display:flex;flex-direction:column;gap:8px}
+.qo button{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;background:var(--raise);color:var(--ink);border:0;border-radius:14px;padding:12px 14px;font:inherit;font-size:15px;line-height:1.4;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.qo .lt{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:rgba(255,255,255,.1);margin-top:-1px}
+.qo button.on{background:var(--brand);color:var(--brand-ink)}.qo button.on .lt{background:var(--brand-ink);color:var(--brand)}
+.qc{display:none;margin:8px 0 0}.qc.show{display:block}
+.qc input{width:100%;background:var(--raise);color:var(--ink);border:0;border-radius:12px;padding:12px 14px;font:inherit;font-size:16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);outline:none}
+.qa.done input{pointer-events:none;opacity:.6}
 .qf{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}.qf button{border:0;border-radius:12px;padding:11px 16px;font:inherit;font-weight:600}
 .qf .qgo{background:var(--brand);color:var(--brand-ink)}.qf .qgo:disabled{opacity:.35}.qf .qsk{background:var(--raise);color:var(--ink)}
 .qa.done button{pointer-events:none;opacity:.55}.qa.done .qf{display:none}
@@ -658,9 +664,11 @@ function guestKey(){return new Date().toLocaleDateString('en-CA')}
 function guestUsed(){try{const d=JSON.parse(localStorage.getItem('nusa_guest')||'null');return d&&d.d===guestKey()?d.n:0}catch(e){return 0}}
 function guestBump(){try{localStorage.setItem('nusa_guest',JSON.stringify({d:guestKey(),n:guestUsed()+1}))}catch(e){}}
 function ask(){
+  if(typeof FIX_PH==='string'&&inp.value.indexOf(FIX_PH)>=0)inp.value=inp.value.replace(FIX_PH,'tidak dijelaskan, periksa sendiri kodenya');
   const t0=inp.value.trim();if((!t0&&!att.length)||busy)return;if(att.some(a=>a.busy)){toast('Lampiran masih dibaca, tunggu sebentar');return}
   if(!user&&guestUsed()>=GUEST_LIMIT){lm.classList.add('show');toast('Batas chat tamu hari ini habis. Masuk dulu biar bebas ngobrol');return}const ims=att.filter(a=>a.img),oth=att.filter(a=>!a.img),othN=oth.map(a=>a.n).join(', ');
   const t=t0||(oth.length?'Lampiran: '+othN:'Jelaskan isi gambar ini.');
+  const fixM=att.some(a=>a.fixFor);
   const shown=t0?(oth.length?t0+'\nLampiran: '+othN:t0):(oth.length?t:'');
   const thumbs=ims.map(a=>a.th||a.img).slice(0,4);
   const isNew=!cur;
@@ -704,7 +712,7 @@ function ask(){
   const arm=()=>{clearTimeout(to);to=setTimeout(()=>ctl.abort(),150000)};
   const onVis=()=>{if(document.hidden)clearTimeout(to);else arm()};
   document.addEventListener('visibilitychange',onVis);arm();wlOn();
-  if(needQA(t)){
+  if(needQA(t)&&!fixM){
     b.dataset.hv='0';const lbq=b.querySelector('.think b');if(lbq)lbq.textContent='Menyiapkan pertanyaan';
     const imgsQ=(window._sent||[]).filter(a=>a.img).map(a=>a.img).slice(0,4);if(imgsQ.length)QAIMG.set(c,imgsQ);
     const msQ=buildMsgs(c,true);msQ[msQ.length-1].content+='\n\n'+QA_PROMPT;
@@ -791,38 +799,48 @@ const QA_SKIP=/(langsung (bikin|buat)|tanpa tanya|tidak perlu tanya|nggak usah t
 const QA_ANS=/^Jawaban tanya jawab:/;
 const QAIMG=new WeakMap();
 function needQA(t){t=String(t||'');return !QA_ANS.test(t)&&!QA_SKIP.test(t)&&QA_ACT.test(t)&&QA_OBJ.test(t)}
-const QA_PROMPT='[MODE TANYA DULU. Pengguna meminta kode. JANGAN menulis kode apa pun dan jangan membuat file. Balas HANYA dengan satu objek JSON valid, tanpa markdown, tanpa teks lain, bentuk: {"intro":"satu kalimat pendek","q":[{"t":"pertanyaan singkat","o":["opsi 1","opsi 2","opsi 3"]}]}. Buat 3 sampai 4 pertanyaan yang paling menentukan supaya hasil sesuai referensi dan keinginan pengguna (misalnya tampilan atau gaya, warna, fitur utama, perilaku, ukuran atau perangkat, teknologi). Jika ada file atau gambar terlampir, jadikan itu referensi dan tanyakan hal yang belum jelas darinya. Tiap pertanyaan punya 2 sampai 4 opsi singkat (maksimal 5 kata). Jangan tanya hal yang sudah jelas. Bahasa Indonesia.]';
-const QA_FALLBACK={intro:'Biar hasilnya pas, jawab dulu ya.',q:[
- {t:'Gaya tampilan yang kamu mau?',o:['Minimalis gelap','Terang bersih','Warna-warni','Ikuti referensi']},
- {t:'Fitur atau bagian utamanya?',o:['Sederhana saja','Standar lengkap','Banyak interaksi']},
- {t:'Dipakai di perangkat apa?',o:['HP','Laptop','Keduanya']}]};
+const QA_PROMPT='[MODE TANYA DULU. Pengguna meminta kode. JANGAN menulis kode apa pun dan jangan membuat file. Balas HANYA dengan satu objek JSON valid, tanpa markdown, tanpa teks lain, bentuk: {"intro":"satu kalimat pendek","q":[{"t":"pertanyaan","o":["opsi 1","opsi 2","opsi 3"]}]}. Buat 3 sampai 4 soal pilihan ganda yang paling menentukan supaya hasil sesuai keinginan pengguna dan referensinya (misalnya tampilan, warna, fitur utama, perilaku, perangkat). ATURAN BAHASA: pakai bahasa Indonesia sehari-hari yang sopan dan netral, sapa dengan kamu (jangan gue, lo, bro). Satu soal hanya menanyakan SATU hal, kalimatnya pendek dan jelas. ATURAN OPSI: 2 sampai 4 opsi per soal, tiap opsi konkret dan jelas hasilnya bagi orang awam, saling berbeda dan tidak tumpang tindih, maksimal 8 kata. Kalau terpaksa memakai istilah teknis, jelaskan singkat dalam kurung, misalnya "Efek cahaya halus (glow lembut)". Jangan buat opsi nggak tau, terserah, kombinasi semua, atau lainnya karena aplikasi sudah menambahkan pilihan jawab sendiri. Beri tanda (disarankan) di akhir SATU opsi yang paling cocok untuk pengguna yang ragu. Jangan tanya hal yang sudah jelas dari permintaan. Jika ada file atau gambar terlampir, jadikan itu referensi.]';
+const QA_FALLBACK={intro:'Biar hasilnya pas, jawab beberapa soal singkat ini dulu ya.',q:[
+ {t:'Bagaimana tampilan yang kamu inginkan?',o:['Gelap dan minimalis (disarankan)','Terang dan bersih','Penuh warna','Mengikuti gambar referensi']},
+ {t:'Seberapa lengkap fiturnya?',o:['Sederhana, hanya yang diminta (disarankan)','Standar, ada beberapa tambahan','Lengkap dengan banyak interaksi']},
+ {t:'Akan dibuka di perangkat apa?',o:['Utamanya HP (disarankan)','Utamanya laptop','HP dan laptop sama pentingnya']}]};
 function parseQA(a){
   try{
     if(/```/.test(a))return null;
     const m=String(a).match(/\{[\s\S]*\}/);if(!m)return null;
     const j=JSON.parse(m[0]);if(!j||!Array.isArray(j.q))return null;
     const q=j.q.filter(x=>x&&typeof x.t==='string'&&Array.isArray(x.o)&&x.o.length>=2).slice(0,4)
-      .map(x=>({t:x.t.slice(0,160),o:x.o.slice(0,4).map(v=>String(v).slice(0,60))}));
+      .map(x=>({t:x.t.slice(0,160),o:x.o.map(v=>String(v).slice(0,70)).filter(v=>v.trim()&&!/^(nggak tau|ngga tau|tidak tahu|tidak tau|terserah|lainnya)\.?$/i.test(v.trim())).slice(0,4)})).filter(x=>x.o.length>=2);
     return q.length?{intro:String(j.intro||'').slice(0,200),q:q}:null;
   }catch(e){return null}
 }
 function qaText(qa){return (qa.intro?qa.intro+'\n\n':'')+qa.q.map((x,i)=>(i+1)+'. '+x.t+' ('+x.o.join(' / ')+')').join('\n')}
 function renderQA(b,qa,origT,locked){
-  let h='<div class="qa'+(locked?' done':'')+'">'+(qa.intro?'<p class="qi">'+esc(qa.intro)+'</p>':'');
-  qa.q.forEach((x,i)=>{h+='<div class="qq" data-i="'+i+'"><div class="qt">'+(i+1)+'. '+esc(x.t)+'</div><div class="qo">'+x.o.map((o,j)=>'<button type="button" data-j="'+j+'">'+esc(o)+'</button>').join('')+'</div></div>'});
+  const LT='ABCDE',clean=o=>String(o).replace(/\s*\((disarankan|rekomendasi)\)\s*$/i,'');
+  let h='<div class="qa'+(locked?' done':'')+'">'+(qa.intro?'<p class="qi">'+esc(qa.intro)+'</p>':'')+'<p class="qh">Pilih satu jawaban untuk tiap soal. Kalau tidak ada yang cocok, pilih "Jawab sendiri" lalu tulis.</p>';
+  qa.q.forEach((x,i)=>{
+    h+='<div class="qq" data-i="'+i+'"><div class="qt">'+(i+1)+'. '+esc(x.t)+'</div><div class="qo">'
+      +x.o.map((o,j)=>'<button type="button" data-j="'+j+'"><span class="lt">'+LT[j]+'</span><span>'+esc(o)+'</span></button>').join('')
+      +'<button type="button" data-j="own"><span class="lt">'+LT[x.o.length]+'</span><span>Jawab sendiri</span></button></div>'
+      +'<div class="qc"><input type="text" maxlength="160" placeholder="Tulis jawabanmu di sini" enterkeyhint="done"></div></div>'});
   h+='<div class="qf"><button type="button" class="qgo" disabled>Lanjut bikin kode</button><button type="button" class="qsk">Langsung bikin saja</button></div></div>';
   b.innerHTML=h;
   if(locked)return;
   const root=b.querySelector('.qa'),go=root.querySelector('.qgo'),pick={};
+  const upd=()=>{go.disabled=!qa.q.every((_,i)=>pick[i])};
   root.querySelectorAll('.qq').forEach(qq=>{
+    const i=+qq.dataset.i,box=qq.querySelector('.qc'),inp2=box.querySelector('input');
     qq.querySelectorAll('.qo button').forEach(bt=>{bt.onclick=()=>{
       qq.querySelectorAll('.qo button').forEach(z=>z.classList.remove('on'));bt.classList.add('on');
-      pick[qq.dataset.i]=qa.q[qq.dataset.i].o[bt.dataset.j];
-      go.disabled=Object.keys(pick).length<qa.q.length}})});
+      if(bt.dataset.j==='own'){box.classList.add('show');const v=inp2.value.trim();if(v)pick[i]=v;else delete pick[i];setTimeout(()=>{try{inp2.focus()}catch(_){}},30)}
+      else{box.classList.remove('show');pick[i]=clean(qa.q[i].o[bt.dataset.j])}
+      upd()}});
+    inp2.oninput=()=>{const v=inp2.value.trim();if(v)pick[i]=v;else delete pick[i];upd()};
+  });
   const sendIt=txt=>{if(busy)return;root.classList.add('done');inp.value=txt;ask()};
   go.onclick=()=>{
-    if(Object.keys(pick).length<qa.q.length)return;
-    sendIt('Jawaban tanya jawab:\n'+qa.q.map((x,i)=>'- '+x.t+' '+pick[i]).join('\n')+'\n\nPermintaan awal: '+origT+'\nSekarang buatkan sesuai jawaban di atas.');
+    if(!qa.q.every((_,i)=>pick[i]))return;
+    sendIt('Jawaban tanya jawab:\n'+qa.q.map((x,i)=>'- '+x.t+' Jawabanku: '+pick[i]).join('\n')+'\n\nPermintaan awal: '+origT+'\nSekarang buatkan sesuai jawaban di atas.');
   };
   root.querySelector('.qsk').onclick=()=>sendIt(origT+'\n\nLangsung bikin saja, tidak perlu tanya.');
 }
@@ -1887,6 +1905,7 @@ $('#cn').onclick=()=>{const e=cExt(cA);if(cDk&&e!=='py'&&e!=='svg'&&cPv){window.
   const h=(e==='py'||e==='svg')?runDoc(cF[cA],e):cPv?cBuild(cPv,false):null;if(!h)return toast('Belum ada berkas .html');window.open(URL.createObjectURL(new Blob([h],{type:'text/html'})),'_blank')};
 $('#cd').onclick=()=>cF[cA]===undefined?toast('Belum ada berkas'):dialog('Simpan sebagai','Nama berkas yang akan disimpan',cA,'Simpan',v=>{if(!cOk(v))return toast('Nama tidak valid, contoh: index.html');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([cF[cA]],{type:'text/plain'}));a.download=v;a.click();toast('Disimpan sebagai '+v)});
 $('#cmc').onclick=cCopy;
+const FIX_PH='tulis di sini apa yang salah, misalnya: cincin planet tidak terlihat';
 $('#cfx').onclick=()=>{
   cMn.classList.remove('show');
   if(busy){toast('Tunggu jawaban Nusa selesai dulu');return}
@@ -1894,12 +1913,17 @@ $('#cfx').onclick=()=>{
   if(!f||cF[f]===undefined){toast('Pilih berkas .html dulu');return}
   const er=(cco.innerText||'').trim().slice(0,1500);
   let code=cF[f];if(code.length>9000)code=code.slice(0,9000)+'\n<!-- dipotong -->';
-  const fence='```';
-  inp.value='Perbaiki bug di kode ('+f+') ini. '+(er?'Pesan error di konsol preview:\n'+er+'\n\n':'Tidak ada pesan error di konsol, tapi hasil di preview salah (kosong, warna datar, objek tidak terlihat, atau posisi salah); periksa logika kodenya. ')+'Kembalikan file lengkap yang sudah diperbaiki sampai </html>, jangan dipersingkat dan jangan menghapus fitur yang sudah ada.\n\n'+fence+'html\n'+code+'\n'+fence;
+  /* kode dilampirkan sebagai berkas (bisa dihapus lewat tanda x), teks permintaan masuk ke kolom chat dan TIDAK langsung dikirim */
+  for(let i=att.length-1;i>=0;i--)if(att[i].fixFor)att.splice(i,1);
+  att.push({n:f,s:code.length,img:null,txt:code,busy:false,err:null,fixFor:f});renderAtt();
+  const head='Tolong perbaiki file '+f+'.\n\nMasalah yang terjadi: ';
+  const tail='\n\n'+(er?'Pesan error di konsol preview:\n'+er:'Tidak ada pesan error di konsol preview.')+'\n\nKembalikan file lengkap yang sudah diperbaiki sampai </html>, jangan dipersingkat dan jangan menghapus fitur yang sudah ada.';
+  inp.value=head+FIX_PH+tail;
   if(cOn)cStop();
   ceEl.classList.remove('show');
   try{grow()}catch(_){}
-  ask();
+  setTimeout(()=>{try{inp.focus();inp.setSelectionRange(head.length,head.length+FIX_PH.length)}catch(_){}},60);
+  toast('Edit permintaan perbaikan, lalu kirim');
 };
 $('#acode').onclick=()=>{const a=curArt;if(!a||a.img)return;am.classList.remove('show');cImport([{name:a.name,content:a.content}]).then(g=>{if(g.length){openCode();toast(g[0]+' dibuka di Code')}else toast('Nama berkas tidak valid')})};
 $('#navcode').onclick=()=>{try{close()}catch(_){}openCode()};
