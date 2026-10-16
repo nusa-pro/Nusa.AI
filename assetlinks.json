@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "dev.pages.nusa_pro.twa",
+    "sha256_cert_fingerprints": [
+      "26:51:58:EF:D3:66:4C:27:C9:25:A4:16:C8:00:41:AC:75:38:68:ED:1E:ED:70:13:4B:E7:40:87:3E:DF:A4:0F"
+    ]
+  }
+}]
