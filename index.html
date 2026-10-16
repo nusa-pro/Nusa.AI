@@ -83,6 +83,12 @@ select{background:var(--raise);color:var(--ink);border:0;border-radius:9px;paddi
 @keyframes caret{50%{opacity:0}}
 .bub code{background:#000;border-radius:4px;padding:1px 5px;font-size:.92em}
 .bub pre{background:#000;border-radius:8px;padding:10px;overflow-x:auto;margin:8px 0 0;font-size:14px}
+.qa .qi{margin:0 0 10px;color:var(--muted)}.qq{margin:0 0 14px}.qt{font-weight:600;margin:0 0 8px}
+.qo{display:flex;flex-wrap:wrap;gap:8px}.qo button{background:var(--raise);color:var(--ink);border:0;border-radius:999px;padding:9px 14px;font:inherit;font-size:15px;line-height:1.2;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.qo button.on{background:var(--brand);color:var(--brand-ink);font-weight:600}
+.qf{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}.qf button{border:0;border-radius:12px;padding:11px 16px;font:inherit;font-weight:600}
+.qf .qgo{background:var(--brand);color:var(--brand-ink)}.qf .qgo:disabled{opacity:.35}.qf .qsk{background:var(--raise);color:var(--ink)}
+.qa.done button{pointer-events:none;opacity:.55}.qa.done .qf{display:none}
 .acts{display:flex;gap:6px;margin-top:6px}
 .acts button{background:none;border:0;color:var(--muted);font-size:13px;padding:2px 4px}
 /* loading atom 3D */
@@ -698,8 +704,23 @@ function ask(){
   const arm=()=>{clearTimeout(to);to=setTimeout(()=>ctl.abort(),150000)};
   const onVis=()=>{if(document.hidden)clearTimeout(to);else arm()};
   document.addEventListener('visibilitychange',onVis);arm();wlOn();
-  const heavy=isHeavy(t,hasAtt);b.dataset.hv=heavy?'1':'0';if(heavy)nusaRun(b,heavy);
-  proxyCall(JSON.stringify({stream:heavy,model:modelPick,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined)arm()})
+  if(needQA(t)){
+    b.dataset.hv='0';const lbq=b.querySelector('.think b');if(lbq)lbq.textContent='Menyiapkan pertanyaan';
+    const imgsQ=(window._sent||[]).filter(a=>a.img).map(a=>a.img).slice(0,4);if(imgsQ.length)QAIMG.set(c,imgsQ);
+    const msQ=buildMsgs(c,true);msQ[msQ.length-1].content+='\n\n'+QA_PROMPT;
+    proxyCall(JSON.stringify({stream:false,model:modelPick,messages:msQ.map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,null)
+      .then(d=>{if(run.stopped)return;
+        const qa=parseQA((d.reply||'').trim())||QA_FALLBACK;
+        run.committed=true;syncSend();c.msgs.push({r:'b',t:qaText(qa),qa:1});c.ts=Date.now();saveConvs();
+        renderQA(b,qa,t,false);fin(qaText(qa));sc.scrollTop=sc.scrollHeight})
+      .catch(e=>{if(run.stopped)return;if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
+      .finally(()=>{clearTimeout(to);document.removeEventListener('visibilitychange',onVis);wlOff()});
+    return;
+  }
+  const heavy=isHeavy(t,hasAtt);b.dataset.hv=heavy?'1':'0';let acc='';if(heavy)nusaRun(b,heavy);
+  proxyCall(JSON.stringify({stream:heavy,model:modelPick,messages:buildMsgs(c).map(m=>m.images?{role:m.role,content:m.content,images:m.images}:{role:m.role,content:m.content})}),ctl.signal,o=>{if(o&&o.n!==undefined)arm();
+      if(o&&o.reply===undefined&&!o.error){const ch=o.delta!==undefined?o.delta:(o.t!==undefined?o.t:(o.text!==undefined?o.text:(o.chunk!==undefined?o.chunk:o.content)));
+        if(typeof ch==='string'&&ch){acc+=ch;const th=b.querySelector('.think'),lbl=codePart(acc);if(th&&lbl)th._info=lbl}}})
     .then(d=>nusaFinal(b,heavy).then(()=>d)).then(d=>{if(run.stopped)return;const a=(d.reply||'').trim()||'(jawaban kosong)';if(IMG_URL&&!hasAtt&&shouldImg(t,a)){doImg(imgPrompt(t)||t);return}run.committed=true;syncSend();c.msgs.push({r:'b',t:a});c.ts=Date.now();saveConvs();const k=extractArts(a,c.title),kc=null;typeReply(b,a,()=>{fin(a);if(k)(kc||Promise.resolve([])).catch(()=>[]).then(g=>toast(g.length?(g.length>1?g.length+' file':g[0])+' dibuat di Code':k+' file disimpan di Artefak'))})})
     .catch(e=>{if(run.stopped)return;if(e.limit)lm.classList.add('show');const em=e.limit?String(e.message):'Maaf, Nusa gagal menjawab: '+(e.name==='AbortError'?'waktu habis':String(e.message));c.msgs.push({r:'b',t:em,err:true});saveConvs();done(esc(em),'')})
     .finally(()=>{clearTimeout(to);document.removeEventListener('visibilitychange',onVis);wlOff()});
@@ -762,12 +783,75 @@ function safeCut(s,n){
   return s.slice(0,n);
 }
 
-const RUN_CMDS=['Membaca instruksi pengguna', 'Mengurai permintaan', 'Memetakan struktur halaman', 'Mengunci tujuan proyek', 'Memindai kebutuhan utama', 'Menetapkan ruang lingkup', 'Menyusun kerangka HTML', 'Menentukan hierarki konten', 'Membangun grid layout', 'Mengunci jarak antar blok', 'Memilih palet warna', 'Memverifikasi kontras warna', 'Mengunci tipografi', 'Memuat pasangan font', 'Menulis blok header', 'Menulis blok navigasi', 'Menulis blok hero', 'Menulis blok konten', 'Menulis blok footer', 'Menyusun aturan CSS', 'Menetapkan variabel warna', 'Menyetel ukuran font', 'Menyesuaikan layar HP', 'Menguji lebar 360 piksel', 'Menata ulang elemen', 'Merapikan padding', 'Menyelaraskan sumbu kiri', 'Memangkas elemen berlebih', 'Memasang efek hover', 'Menyiapkan transisi', 'Menyusun animasi intro', 'Mengatur durasi animasi', 'Menyinkronkan urutan animasi', 'Menulis logika tombol', 'Menyambung event klik', 'Menyiapkan fungsi utama', 'Memeriksa semua variabel', 'Memeriksa tag penutup', 'Menutup blok script', 'Menyatukan seluruh bagian', 'Menggabungkan style dan script', 'Mengecek panjang kode', 'Memastikan kode utuh', 'Mencari bagian terpotong', 'Memverifikasi penutup html', 'Menjalankan cek sintaks', 'Menghapus kode tak terpakai', 'Menyederhanakan selector', 'Merapikan indentasi', 'Mengurutkan properti CSS', 'Menekan ukuran file', 'Menyiapkan font cadangan', 'Mengunci kontras teks', 'Menyetel bayangan dan sudut', 'Memeriksa aksesibilitas dasar', 'Memasang label tombol', 'Menyusun daftar proyek', 'Menyusun bagian profil', 'Menyusun bagian kontak', 'Menyusun bagian keahlian', 'Memasang ikon SVG', 'Menggambar elemen SVG', 'Mengunci rasio gambar', 'Menyetel breakpoint', 'Mengunci tinggi viewport', 'Menahan overflow horizontal', 'Menguji gulir halaman', 'Menguji menu geser', 'Memeriksa urutan tab', 'Menyiapkan state awal', 'Memuat data contoh', 'Membuat fungsi validasi', 'Menyiapkan penyimpanan lokal', 'Menangani input kosong', 'Menangani error', 'Mengisi teks konten', 'Memotong teks terlalu panjang', 'Mengecek tautan internal', 'Menyambung antar halaman', 'Mengurangi reflow', 'Menyusun ulang DOM', 'Membersihkan duplikat', 'Menyamakan nama class', 'Mengganti nilai tetap dengan variabel', 'Memeriksa selector bentrok', 'Menutup tag terbuka', 'Mengecek tanda kurung', 'Mengecek tanda kutip', 'Menguji alur dari awal', 'Menguji alur sampai akhir', 'Memeriksa tampilan kosong', 'Memeriksa warna datar', 'Memeriksa posisi elemen', 'Mengunci urutan layer', 'Menyetel z-index', 'Menulis ulang bagian lemah', 'Memoles detail kecil', 'Finalisasi kode', 'Menyiapkan hasil', 'Mengirim hasil'];
 /* Teks status: satu posisi, diketik lalu keluar. Urutan: Waiting for replay, Nusa working, lalu teks acak (teks acak hanya untuk permintaan berat: kode/website). */
+/* ===== TANYA JAWAB DULU: setiap permintaan kode ditanyakan dulu lewat tombol ketuk ===== */
+const QA_ACT=/\b(buat(kan)?|bikin(kan)?|bangun|rancang|desain|perbaiki|benerin|fix|refaktor|refactor|tambah(kan)?|ubah|ganti|kembangkan|tulis(kan)?|generate|coding|update|perbarui|rapikan)\b/i;
+const QA_OBJ=/\b(kode|code|coding|script|html|css|javascript|js|website|web|situs|landing|aplikasi|app|game|program|fitur|bug|error|portofolio|portfolio|dashboard|template|animasi|halaman|login|api|worker|python|react|fungsi|function|file|index)\b/i;
+const QA_SKIP=/(langsung (bikin|buat)|tanpa tanya|tidak perlu tanya|nggak usah tanya|ga usah tanya|jangan tanya)/i;
+const QA_ANS=/^Jawaban tanya jawab:/;
+const QAIMG=new WeakMap();
+function needQA(t){t=String(t||'');return !QA_ANS.test(t)&&!QA_SKIP.test(t)&&QA_ACT.test(t)&&QA_OBJ.test(t)}
+const QA_PROMPT='[MODE TANYA DULU. Pengguna meminta kode. JANGAN menulis kode apa pun dan jangan membuat file. Balas HANYA dengan satu objek JSON valid, tanpa markdown, tanpa teks lain, bentuk: {"intro":"satu kalimat pendek","q":[{"t":"pertanyaan singkat","o":["opsi 1","opsi 2","opsi 3"]}]}. Buat 3 sampai 4 pertanyaan yang paling menentukan supaya hasil sesuai referensi dan keinginan pengguna (misalnya tampilan atau gaya, warna, fitur utama, perilaku, ukuran atau perangkat, teknologi). Jika ada file atau gambar terlampir, jadikan itu referensi dan tanyakan hal yang belum jelas darinya. Tiap pertanyaan punya 2 sampai 4 opsi singkat (maksimal 5 kata). Jangan tanya hal yang sudah jelas. Bahasa Indonesia.]';
+const QA_FALLBACK={intro:'Biar hasilnya pas, jawab dulu ya.',q:[
+ {t:'Gaya tampilan yang kamu mau?',o:['Minimalis gelap','Terang bersih','Warna-warni','Ikuti referensi']},
+ {t:'Fitur atau bagian utamanya?',o:['Sederhana saja','Standar lengkap','Banyak interaksi']},
+ {t:'Dipakai di perangkat apa?',o:['HP','Laptop','Keduanya']}]};
+function parseQA(a){
+  try{
+    if(/```/.test(a))return null;
+    const m=String(a).match(/\{[\s\S]*\}/);if(!m)return null;
+    const j=JSON.parse(m[0]);if(!j||!Array.isArray(j.q))return null;
+    const q=j.q.filter(x=>x&&typeof x.t==='string'&&Array.isArray(x.o)&&x.o.length>=2).slice(0,4)
+      .map(x=>({t:x.t.slice(0,160),o:x.o.slice(0,4).map(v=>String(v).slice(0,60))}));
+    return q.length?{intro:String(j.intro||'').slice(0,200),q:q}:null;
+  }catch(e){return null}
+}
+function qaText(qa){return (qa.intro?qa.intro+'\n\n':'')+qa.q.map((x,i)=>(i+1)+'. '+x.t+' ('+x.o.join(' / ')+')').join('\n')}
+function renderQA(b,qa,origT,locked){
+  let h='<div class="qa'+(locked?' done':'')+'">'+(qa.intro?'<p class="qi">'+esc(qa.intro)+'</p>':'');
+  qa.q.forEach((x,i)=>{h+='<div class="qq" data-i="'+i+'"><div class="qt">'+(i+1)+'. '+esc(x.t)+'</div><div class="qo">'+x.o.map((o,j)=>'<button type="button" data-j="'+j+'">'+esc(o)+'</button>').join('')+'</div></div>'});
+  h+='<div class="qf"><button type="button" class="qgo" disabled>Lanjut bikin kode</button><button type="button" class="qsk">Langsung bikin saja</button></div></div>';
+  b.innerHTML=h;
+  if(locked)return;
+  const root=b.querySelector('.qa'),go=root.querySelector('.qgo'),pick={};
+  root.querySelectorAll('.qq').forEach(qq=>{
+    qq.querySelectorAll('.qo button').forEach(bt=>{bt.onclick=()=>{
+      qq.querySelectorAll('.qo button').forEach(z=>z.classList.remove('on'));bt.classList.add('on');
+      pick[qq.dataset.i]=qa.q[qq.dataset.i].o[bt.dataset.j];
+      go.disabled=Object.keys(pick).length<qa.q.length}})});
+  const sendIt=txt=>{if(busy)return;root.classList.add('done');inp.value=txt;ask()};
+  go.onclick=()=>{
+    if(Object.keys(pick).length<qa.q.length)return;
+    sendIt('Jawaban tanya jawab:\n'+qa.q.map((x,i)=>'- '+x.t+' '+pick[i]).join('\n')+'\n\nPermintaan awal: '+origT+'\nSekarang buatkan sesuai jawaban di atas.');
+  };
+  root.querySelector('.qsk').onclick=()=>sendIt(origT+'\n\nLangsung bikin saja, tidak perlu tanya.');
+}
 function isHeavy(t,hasFiles){
   t=String(t||'');
   if(hasFiles||t.length>350||t.indexOf('```')>=0)return true;
   return /\b(buat(kan)?|bikin(kan)?|bangun|rancang|desain|website|situs|landing|html|css|javascript|kode|coding|script|aplikasi|game|program|fitur|refaktor|refactor|perbaiki|fix|bug|error|portofolio|portfolio|dashboard|template|animasi|halaman|login|api|worker|python|react|fungsi|function)\b/i.test(t);
+}
+/* Info streamer nyata: baca teks yang sedang ditulis AI, lalu tentukan bagian yang sedang dikerjakan */
+function codePart(acc){
+  let x=String(acc||'').replace(/<think>[\s\S]*?<\/think>/gi,'');
+  if(/<think>/i.test(x))return ''; /* model masih berpikir di dalam teks: belum ada bagian yang ditulis */
+  const lo=x.toLowerCase();if(!lo.trim())return '';
+  const fences=(x.match(/```/g)||[]).length;
+  if(fences===0)return 'Menulis penjelasan';
+  if(fences%2===0)return 'Menulis penjelasan'; /* semua blok kode sudah tertutup */
+  const st=x.lastIndexOf('```'),blk=x.slice(st+3),bl=blk.toLowerCase();
+  const lang=(blk.match(/^[ \t]*([a-z0-9+#.\-]+)/i)||[])[1]||'';
+  const L=lang.toLowerCase();
+  if(L==='html'||L==='htm'||/<!doctype|<html/.test(bl)){
+    const so=bl.lastIndexOf('<scr'+'ipt'),sc=bl.lastIndexOf('<\/scr'+'ipt>');if(so>=0&&so>sc)return 'Menulis JavaScript';
+    const yo=bl.lastIndexOf('<style'),yc=bl.lastIndexOf('</style>');if(yo>=0&&yo>yc)return 'Menulis CSS';
+    if(bl.indexOf('<body')<0)return bl.indexOf('<head')>=0?'Menulis bagian head':'Menulis kerangka HTML';
+    const tags=[['<footer','Menulis footer'],['<form','Menulis form'],['<section','Menulis section'],['<main','Menulis konten utama'],['<nav','Menulis navigasi'],['<header','Menulis header']];
+    let best=-1,lab='Menulis HTML';tags.forEach(a=>{const i=bl.lastIndexOf(a[0]);if(i>best){best=i;lab=a[1]}});
+    return lab;
+  }
+  const M={js:'JavaScript',javascript:'JavaScript',jsx:'React',tsx:'React',ts:'TypeScript',typescript:'TypeScript',css:'CSS',py:'Python',python:'Python',json:'JSON',sql:'SQL',bash:'skrip shell',sh:'skrip shell',java:'Java',php:'PHP',c:'C',cpp:'C++',go:'Go',rust:'Rust',kotlin:'Kotlin',md:'Markdown',markdown:'Markdown',svg:'SVG'};
+  return M[L]?'Menulis '+M[L]:'Menulis kode';
 }
 function nusaRun(b,heavy){
   const t=b.querySelector('.think');if(!t||t._rot)return;
@@ -777,7 +861,6 @@ function nusaRun(b,heavy){
   let prev=-1;
   const alive=()=>t.isConnected&&!t._stop;
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
-  const pick=()=>{let k;do{k=Math.floor(Math.random()*RUN_CMDS.length)}while(k===prev&&RUN_CMDS.length>1);prev=k;return RUN_CMDS[k]};
   /* satu posisi: teks diketik huruf demi huruf, ditahan, lalu keluar dengan efek out sebelum diganti */
   async function say(txt,hold,keep){
     lb.classList.remove('out');lb.textContent='';
@@ -795,8 +878,17 @@ function nusaRun(b,heavy){
   }
   (async()=>{
     if(!await say('Waiting for replay',900))return;
-    if(!await say('Nusa working',1100,!heavy))return;
-    while(alive()){if(!await say(pick(),1100))break}
+    if(!await say('Nusa working',1100,true))return;
+    let cur='Nusa working';
+    while(alive()){
+      const want=t._info||'Nusa working';
+      if(want!==cur){
+        /* efek keluar yang sama seperti sebelumnya, lalu diketik ulang dengan info baru */
+        lb.classList.add('out');await wait(rm?0:380);if(!alive())break;
+        cur=want;if(!await say(want,1100,true))break;continue;
+      }
+      await wait(200);
+    }
   })();
 }
 /* Tahap akhir: begitu jawaban/file sudah diterima, teks acak memudar lalu diganti "Finalisasi result" sebelum hasil ditampilkan */
@@ -1382,11 +1474,11 @@ const DESIGN_GUIDE=['[PANDUAN MEMBUAT HALAMAN WEB BARU. Permintaan pengguna di a
 '5. CEK AKHIR: semua tag tertutup, setiap id yang dipakai JavaScript ada, tidak ada fungsi yang dipanggil tapi belum ditulis, dan semua bagian yang diminta sudah ada.',
 ']'].join('\n');
 const EDIT_GUIDE='[PANDUAN EDIT: ubah HANYA bagian yang diminta pengguna dan pertahankan semua bagian lain persis seperti aslinya (struktur, gaya, teks, fungsi). Jangan mendesain ulang dan jangan menambah fitur yang tidak diminta. Keluarkan file LENGKAP yang sudah diperbarui dalam satu blok kode sampai penutup file, tanpa memotong atau meringkas dengan komentar seperti "sisanya tetap sama".]';
-function buildMsgs(c){
+function buildMsgs(c,qa){
   const o=apiHist(c),ins=personaText(),last=o[o.length-1];
   if(!last||last.role!=='user')return o;
   const q=last.content;let pre='';
-  {const pb=o.length>1?String(o[o.length-2].content||''):'',hasCode=/<!doctype|<html/i.test(pb)||(FCTX.get(c)||[]).length>0||(window._sent||[]).some(a=>a.txt);
+  if(!qa){const pb=o.length>1?String(o[o.length-2].content||''):'',hasCode=/<!doctype|<html/i.test(pb)||(FCTX.get(c)||[]).length>0||(window._sent||[]).some(a=>a.txt);
     if(hasCode&&(EDITQ.test(q)||/\blebih\b|jadikan|\bwarna\b/i.test(q)||(window._sent||[]).length))pre+=EDIT_GUIDE+'\n\n';
     else if(WEBQ.test(q))pre+=DESIGN_GUIDE+'\n\n'}
   if(ins)pre+='[INSTRUKSI DARI PEMILIK NUSA, ikuti selama tidak bertentangan dengan permintaan pengguna:\n'+ins+']\n\n';
@@ -1397,6 +1489,7 @@ function buildMsgs(c){
   }
   if(pre)last.content='Permintaan pengguna (prioritas utama, penuhi persis):\n'+q+'\n\n'+pre.trim();
   if(persona.mirror&&persona.style!=='formal')last.content+=styleNote(c);
+  if(!qa&&QA_ANS.test(q)&&QAIMG.has(c)&&!last.images){last.images=QAIMG.get(c);last.content+='\n\n[Gambar referensi dari permintaan awal dilampirkan lagi. Cocokkan hasil dengan gambar ini.]'}
   const sa=window._sent||[];window._sent=null;
   {const fm=FCTX.get(c)||[];if(sa.length)FCTX.set(c,fm.concat(sa.filter(a=>a.txt)).slice(-3));else if(fm.length){let r=30000;fm.forEach(a=>{if(r>0){const x=a.txt.slice(0,r);r-=x.length;last.content+='\n\n[FILE DARI PESAN SEBELUMNYA '+a.n+':\n'+x+']'}})}}
   if(sa.length){
